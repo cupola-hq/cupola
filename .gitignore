@@ -1,0 +1,16 @@
+# dependencies (there are none — zero-dep by design — but defensive)
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+*.log
+
+# oh-my-claudecode plugin state — tooling metadata, not the product
+.omc/
+
+# stray runtime artifacts (fake-marker is a leftover unix socket)
+fake-marker
+*.sock
+
+# editor/backup files
+*.bak

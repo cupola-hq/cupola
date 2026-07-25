@@ -1,0 +1,1423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>your house</title>
+<link rel="stylesheet" href="sims.css">
+<style>
+  :root {
+    --bg: #141119; --panel: #241f2b; --ink: #f3ecf7;
+    --dim: #9a90a6; --line: #392f44; --gold: #ffc94a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.5 ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+    height: 100vh; display: flex; overflow: hidden;
+  }
+  #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+  #hud {
+    position: absolute; top: 14px; left: 16px; z-index: 5;
+    display: flex; gap: 14px; align-items: center;
+    font-size: 12px; color: var(--dim); pointer-events: none;
+  }
+  #hud b { color: var(--ink); font-weight: 600; }
+  #cam-ui {
+    position: absolute; top: 12px; right: 16px; z-index: 5;
+    display: flex; gap: 8px; align-items: center;
+  }
+  #cam-ui button {
+    flex: 0 0 auto; padding: 4px 12px; font-size: 11px;
+    background: #322b3b; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer; font-weight: 600;
+  }
+  #cam-ui button:hover { background: #3d3447; }
+  #cam-ui select {
+    flex: 0 0 auto; padding: 4px 10px; font-size: 11px;
+    background: #322b3b; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer; font-weight: 600; font-family: inherit;
+  }
+  #cam-ui select:hover { background: #3d3447; }
+  #cam-ui .hint { font-size: 10px; color: var(--dim); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  #live-dot { background: #46d17f; box-shadow: 0 0 8px #46d17f; }
+  #live-dot.off { background: #e0554e; box-shadow: none; }
+  #side {
+    width: 340px; flex-shrink: 0; background: var(--panel);
+    border-left: 1px solid var(--line); padding: 20px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #side h2 { font-size: 15px; font-weight: 650; line-height: 1.35; }
+  #side .meta { font-size: 11px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; word-break: break-all; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; }
+  .q { background: #2f2733; border: 1px solid var(--gold); border-left: 3px solid var(--gold);
+    border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+  .said { background: #1b2420; border: 1px solid #2f4a3d; border-left: 3px solid #46d17f;
+    border-radius: 8px; padding: 12px; font-size: 12px; color: #d3e4da;
+    max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+  .prompt { background: #1e1a24; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-size: 12px; color: #cfc5d8; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+  .empty { color: var(--dim); font-size: 13px; }
+  hr { border: 0; border-top: 1px solid var(--line); }
+  .k { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .warn { color: var(--gold); font-size: 11px; }
+  .acts { display: flex; gap: 8px; }
+  .reply { display: flex; gap: 8px; }
+  .reply input {
+    flex: 1; min-width: 0; padding: 8px 10px; border-radius: 7px;
+    font: inherit; font-size: 12px;
+    background: #1b1720; color: var(--ink); border: 1px solid var(--line);
+  }
+  .reply input:focus { outline: none; border-color: #46d17f; }
+  .reply button { flex: 0 0 auto; }
+  .screen {
+    background: #0f0d13; border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; font: 10px/1.35 ui-monospace, Menlo, monospace;
+    color: #b9aec6; white-space: pre; overflow: auto; max-height: 240px;
+  }
+  button {
+    flex: 1; padding: 8px 10px; border-radius: 7px; cursor: pointer;
+    font: inherit; font-size: 12px; font-weight: 600;
+    background: #322b3b; color: var(--ink); border: 1px solid var(--line);
+  }
+  button:hover { background: #3d3447; }
+  button.danger { border-color: #6e3230; color: #ff9a94; }
+  button.danger:hover { background: #4a2422; }
+  button.armed { background: #b5322c; border-color: #b5322c; color: #fff; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .note { font-size: 11px; color: var(--dim); }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="board">
+      <canvas id="c"></canvas>
+      <svg id="sims" viewBox="0 0 1000 790" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div id="hud">
+      <span><span class="dot" id="live-dot"></span><span id="live-text">connecting</span></span>
+      <span><b id="n-work">0</b> working</span>
+      <span><b id="n-block">0</b> need you</span>
+      <span><b id="n-idle">0</b> idle</span>
+      <span><b id="n-stale">0</b> resting</span>
+    </div>
+    <div id="cam-ui">
+      <select id="b-theme" title="Theme"></select>
+      <button id="b-view" title="V">iso</button>
+      <button id="b-fit" title="F">fit</button>
+      <span class="hint">scroll to zoom · drag to pan</span>
+    </div>
+  </div>
+  <aside id="side"><div class="empty">Click a visitor to see what they're doing.</div></aside>
+
+<script src="theme-engine.js"></script>
+<script>
+// World size is fixed across themes for v1 (THEMES.md §5.1: the car theme
+// explicitly reuses "the same canvas"). A theme's own world.w/h in
+// theme.json is validated against this, not read as a live resize source --
+// see loadTheme() below.
+const W = 1000, H = 790;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const svg = document.getElementById('sims');
+const board = document.getElementById('board');
+
+// Declared up here because resize() runs at load and clears it; a `let` further
+// down the file would be in its temporal dead zone and throw.
+let houseDrawn = false;
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  // Floor at 0.1: below ~340px the sidebar eats the whole width and the scale
+  // goes negative, which is an invalid CSS length -- silently ignored, leaving
+  // the canvas stuck at its last size.
+  const s = Math.max(0.1, Math.min((innerWidth - 340) / W, innerHeight / H, 1.4));
+  // Assigning width/height WIPES the canvas. The house is drawn once and
+  // latched (it never changes), so without clearing the latch a resize leaves
+  // a blank black canvas forever.
+  cv.width = W * dpr; cv.height = H * dpr;
+  houseDrawn = false;
+  cv.style.width = W * s + 'px'; cv.style.height = H * s + 'px';
+  // The SVG overlay must track the canvas exactly or the characters drift off
+  // the furniture they're meant to be standing at.
+  svg.style.width = W * s + 'px'; svg.style.height = H * s + 'px';
+  board.style.width = W * s + 'px'; board.style.height = H * s + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', resize); resize();
+// Refit on resize, registered separately: resize() itself runs at load, before
+// `cam` is declared, so touching the camera in there would hit its temporal dead
+// zone and kill the page.
+addEventListener('resize', () => fitCamera());
+
+// ---- theme -----------------------------------------------------------------
+// The floorplan, furniture anchors, seats, and routing graph all live in
+// public/themes/<name>/theme.json now (THEMES.md §3: "themes own their
+// map"). This file drives layout()/route() generically through
+// theme-engine.js instead of hardcoding the house's rooms -- see
+// public/theme-engine.js for the full contract and
+// public/themes/house/theme.json for the house expressed in it (every
+// number below was lifted verbatim from what used to be here).
+//
+// THEME is intentionally a bare top-level `let`, not `window.THEME`: a
+// dynamically-injected theme render.js script shares this script's top-level
+// lexical scope (standard behaviour for classic, non-module <script> tags in
+// one document) and reads THEME, sessions, sprites, heldSeat, and the camera
+// helpers below as plain identifiers. See themes/house/render.js's header
+// comment for the exact contract a renderer can rely on.
+let THEME = null;
+const QS = new URLSearchParams(location.search);
+
+async function fetchTheme(name) {
+  const r = await fetch(`themes/${name}/theme.json`);
+  if (!r.ok) throw new Error(`theme "${name}" not found (${r.status})`);
+  const t = await r.json();
+  if (t.format !== 1) throw new Error(`theme "${name}" declares format ${t.format}, this build only understands 1`);
+  if (t.world && (t.world.w !== W || t.world.h !== H)) {
+    console.warn(`theme "${name}" declares a ${t.world.w}x${t.world.h} world; the page is fixed at ${W}x${H} (THEMES.md §5.1)`);
+  }
+  return t;
+}
+
+function loadedRendererScripts() {
+  return (loadedRendererScripts._s = loadedRendererScripts._s || new Set());
+}
+function loadRendererScript(theme) {
+  return new Promise((resolve, reject) => {
+    if (!theme.render) return resolve();               // a theme may ship geometry only, no art yet
+    if ((window.THEME_RENDERERS || {})[theme.name]) return resolve();
+    if (loadedRendererScripts().has(theme.render)) return resolve();
+    const el = document.createElement('script');
+    el.src = theme.render;
+    el.onload = () => { loadedRendererScripts().add(theme.render); resolve(); };
+    el.onerror = () => reject(new Error(`failed to load renderer ${theme.render}`));
+    document.head.appendChild(el);
+  });
+}
+function renderer() {
+  const r = (window.THEME_RENDERERS || {})[THEME.name];
+  if (!r) throw new Error(`no renderer registered for theme "${THEME.name}"`);
+  return r;
+}
+
+const STATE_COLOR = { working: '#46d17f', blocked: '#ffc94a', idle: '#6aa9ff', stale: '#8c7fa0' };
+const STATE_LABEL = { working: 'working', blocked: 'needs you', idle: 'idle', stale: 'resting' };
+
+function route(from, toRoom, toPt) { return ThemeEngine.route(THEME, from, toRoom, toPt); }
+function roomAt(p) { return ThemeEngine.regionAt(THEME, p); }
+
+let sessions = [], sprites = new Map(), selected = null, seeded = false;
+// Whether the daemon can raise a terminal window (macOS only). Learned from the
+// SSE envelope; gates the "Go to terminal" button so it hides on other platforms.
+let canFocus = false;
+window.selectSim = id => { selected = id; renderSide(); syncSelection(); };
+
+// Visitors who have been shown out. Their session is gone from the payload, so
+// the sprite has to outlive its data: it keeps walking to the street, waves,
+// and only then gets removed. Each entry is { s: last session snapshot, sp }.
+const ghosts = new Map();
+
+// Sticky spot claims. Without these, layout() re-derives every position from
+// list order on each refresh, so one session arriving or leaving renumbers
+// everyone and the whole room gets up and walks to a new spot. Held by the
+// engine now (theme-engine.js's layoutSlots/layoutField/layoutLoop), but the
+// Maps themselves live here so a theme switch can decide whether to carry
+// them over (it doesn't -- see switchTheme()) and so render.js's drawBedFX
+// can read heldSeat directly, same as before the split.
+const heldSeat = new Map();    // id -> "seatId:slotIndex"
+const heldFloor = new Map();   // id -> grid index
+const heldLoop = new Map();    // id -> stable loop index
+const held = { heldSeat, heldFloor, heldLoop };
+
+function hash(s) { return ThemeEngine.hash(s); }
+function hue(s) { return (hash(s.id) * 137.5) % 360; }
+
+function setGoal(sp, pt, room) {
+  if (sp.goal && sp.goal.x === pt.x && sp.goal.y === pt.y) return;
+  sp.goal = pt;
+  sp.path = route({ x: sp.x, y: sp.y }, room, pt);
+}
+
+// ---- loop-kind placement: continuous, not chord-walked -------------------
+// layoutTheme() only re-samples layoutLoop()'s t-based formula once per SSE
+// broadcast; if a loop occupant were routed through setGoal()/step() like
+// everything else, it would sit still between broadcasts and then beeline a
+// straight chord to wherever the formula landed next -- at the generic
+// per-id jittered actor.speed, not the loop's own declared uniform speed
+// (THEMES.md §3.2's no-collision proof needs that uniformity). So a sprite
+// whose placement record carries `loop` (see theme-engine.js's layoutLoop())
+// is tracked here instead: every animation frame, its x/y/face come straight
+// from pointOnPolyline() evaluated at the CURRENT wall-clock time, using the
+// {id, i, n} the engine assigned it at the last broadcast. i/n don't change
+// between broadcasts (the sticky heldLoop index and the group's size are
+// both fixed until the next layoutTheme() call), so this is safe to sample
+// every frame without re-running the engine.
+//
+// Cached per loop place id (not per sprite -- every occupant of the same
+// loop shares one polyline and one speed).
+const loopCache = new Map();
+function loopInfoFor(placeId) {
+  let info = loopCache.get(placeId);
+  if (!info) {
+    const pl = THEME.places.find(x => x.id === placeId);
+    info = { poly: ThemeEngine.buildLoopPolyline(pl.loop), speed: pl.speed != null ? pl.speed : 60 };
+    loopCache.set(placeId, info);
+  }
+  return info;
+}
+
+// Per-frame position for a loop-bound sprite. Until it's caught up with its
+// assigned phase (sp.loopLocked), it CHASES the live (already-moving) target
+// point in a straight line at a fixed speed comfortably above the loop's own
+// speed (1.4x -- enough margin that a pursuer moving straight at an
+// ever-updating target is guaranteed to close the gap to zero, not just
+// asymptote toward it) rather than resampling and jumping to it. That's the
+// "join the track from where it is" transition the brief calls for: a real,
+// continuous merge, not a snap -- and it never uses the generic per-id
+// jittered actor.speed, so it can't quietly violate the uniform-speed
+// requirement even during the few transitional frames. Once locked, position
+// is simply the live formula point, forever, until the session leaves the
+// loop (layout() clears sp.onLoop, handing back to the ordinary walker from
+// wherever this left off -- see there for why that hand-off is itself
+// snap-free).
+// ---- heading: real rotation for loop actors ------------------------------
+// Position above is a pure function of (i,n,t) -- has to stay that way, it's
+// what the no-collision spacing proof depends on. Heading is NOT: it's
+// filtered, because the polyline approximates each rounded corner with 16
+// straight sub-segments (theme-engine.js's buildLoopPolyline), so the RAW
+// per-frame tangent is piecewise-constant and steps by 90/16 = 5.625 degrees
+// at every sub-segment vertex -- about once every 90ms at this track's
+// speed. Sampled raw, that reads as a twitch at every vertex, which the
+// brief calls out as worse than not rotating at all. A single-pole low-pass
+// (time constant ANGLE_TAU, shortest-arc-aware so it doesn't ever spin the
+// long way around through 0/360) blends those steps into one continuous
+// sweep; ANGLE_TAU is short enough (0.08s, versus the ~1.4s a quarter-circle
+// corner takes to drive at this track's radius/speed) that it tracks the
+// real turn with no perceptible lag, while still averaging out anything
+// that changes on a ~90ms cadence.
+//
+// LEAN is a separate, purely cosmetic overlay (Fable's call): a little extra
+// nose-into-the-corner rotation, proportional to the car's own (already
+// smoothed) angular velocity, so cars read as carving the corner rather than
+// just pointing at it -- capped at LEAN_MAX degrees, tuned so the track's
+// tightest corner (r=110 @ 120px/s, so ~62.5 deg/s of implied turning) tops
+// out just under the cap, and straights (0 deg/s) get none. It is added on
+// top of sp.angle for rendering only and never folded back into sp.angle,
+// so it can't accumulate or feed back into the filter above.
+const ANGLE_TAU = 0.08, LEAN_TAU = 0.08, LEAN_GAIN = 0.1, LEAN_MAX = 6;
+function angleDeltaDeg(target, current) {
+  let d = (target - current) % 360;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360;
+  return d;
+}
+
+function loopTrack(sp, tSec, dt) {
+  const m = sp.loopMeta;
+  const { poly, speed } = loopInfoFor(m.id);
+  const s_ = (m.i / m.n) * poly.L + speed * tSec;
+  const { pt, face, angle } = ThemeEngine.pointOnPolyline(poly, s_);
+  sp.face = face;
+
+  const targetDeg = angle * 180 / Math.PI;
+  if (sp.angle == null) {
+    // First frame on the loop (or first frame ever): snap straight to the
+    // target, no filtering-in from nothing -- there's no prior heading to
+    // blend from, and blending from an arbitrary default (e.g. 0) would
+    // itself be a pop.
+    sp.angle = targetDeg; sp.angVel = 0;
+  } else {
+    const d = angleDeltaDeg(targetDeg, sp.angle);
+    const k = dt > 0 ? 1 - Math.exp(-dt / ANGLE_TAU) : 1;
+    const appliedDeg = d * k;
+    sp.angle = ((sp.angle + appliedDeg) % 360 + 360) % 360;
+    const instVel = dt > 0 ? appliedDeg / dt : 0;
+    const vk = dt > 0 ? Math.min(1, dt / LEAN_TAU) : 1;
+    sp.angVel += (instVel - sp.angVel) * vk;
+  }
+  const lean = Math.max(-LEAN_MAX, Math.min(LEAN_MAX, sp.angVel * LEAN_GAIN));
+  sp.renderAngle = sp.angle + lean; // world-space degrees; updateSim() re-projects for the camera
+
+  if (sp.loopLocked) {
+    sp.x = pt.x; sp.y = pt.y;
+  } else {
+    const dx = pt.x - sp.x, dy = pt.y - sp.y, d = Math.hypot(dx, dy);
+    const chaseStep = speed * 1.4 * dt;
+    if (d <= chaseStep || d < 1.5) { sp.x = pt.x; sp.y = pt.y; sp.loopLocked = true; }
+    else { sp.x += (dx / d) * chaseStep; sp.y += (dy / d) * chaseStep; }
+  }
+  sp.moving = true;
+}
+
+function layout() {
+  const place = ThemeEngine.layoutTheme(THEME, sessions, sprites, held, performance.now() / 1000);
+
+  for (const s of sessions) {
+    const p = place.get(s.id); if (!p) continue;
+    let sp = sprites.get(s.id);
+    if (!sp) {
+      const ex = THEME.entrance, spread = ex.spreadX[1] - ex.spreadX[0];
+      const fresh = seeded ? { x: ex.spreadX[0] + (hash(s.id) % spread), y: ex.y } : { x: p.pt.x, y: p.pt.y };
+      const spd = THEME.actor.speed;
+      sp = { ...fresh, path: [], goal: null, speed: spd.base + (hash(s.id) % spd.jitter), moving: false, face: 1 };
+      sprites.set(s.id, sp);
+      sp.el = renderer().buildActor(s);
+      svg.appendChild(sp.el);
+    }
+    sp.pose = p.pose || null;
+    sp.restFace = p.face || null;
+
+    if (p.loop) {
+      // Loop-kind placement (see theme-engine.js's layoutLoop() and the
+      // loopTrack() comment above): never chord-walk this once ON the loop.
+      // i/n can shift a little on every broadcast as cars join/leave the
+      // group (documented, bounded phase share -- not a snap), so the
+      // metadata is refreshed unconditionally below, not only on the first
+      // frame a car joins.
+      //
+      // ---- ON-RAMP (additive, house-unaffected: house declares no loop
+      // places, so `p.loop` never exists there and this branch never runs).
+      // Before this, a freshly-joining car flipped onLoop here immediately
+      // and let loopTrack()'s chase run from wherever it physically stood
+      // (mid-garage, mid-pit) straight at a live point on the ring --
+      // review's "pathing is sporadic": a beeline across the infield, not a
+      // car driving onto the road. The loop's own region already carries an
+      // `anchor` -- a point ON the track (theme.json's hub on-ramp) -- so a
+      // freshly-joining car is routed there FIRST via the ordinary
+      // walker/route(), exactly like any other cross-region trip, and only
+      // starts the loop-chase once it actually arrives (see the arrival
+      // check in frame()). A car already on the loop, or already mid-walk
+      // to the gate from a previous broadcast, is left alone here.
+      if (sp.onLoop) {
+        sp.loopMeta = p.loop;
+        sp.path = []; sp.goal = null;
+        sp.loopExit = null;      // back to working -- cancel any pending off-ramp
+      } else if (sp.loopApproach) {
+        sp.pendingLoopMeta = p.loop; // keep the eventual target fresh; walk continues untouched
+      } else if (!seeded) {
+        // Cold boot: `fresh` above already seeded sp.x/sp.y at p.pt itself
+        // (same snap-in-place every other place kind gets on first paint,
+        // not a walk-in from the street) -- already exactly on the ring, so
+        // there is no infield to cross and no on-ramp trip to make.
+        sp.onLoop = true; sp.loopMeta = p.loop; sp.path = []; sp.goal = null; sp.loopLocked = false;
+      } else {
+        const region = THEME.regions[p.room];
+        const gate = region && region.anchor;
+        if (gate) {
+          sp.loopApproach = p.loop.id;
+          sp.pendingLoopMeta = p.loop;
+          setGoal(sp, gate, p.room);
+        } else {
+          // No anchor declared for this loop's region: fall back to the
+          // original immediate hand-off (pre-upgrade behaviour).
+          sp.onLoop = true; sp.loopMeta = p.loop; sp.path = []; sp.goal = null; sp.loopLocked = false;
+        }
+      }
+    } else {
+      if (sp.onLoop) {
+        // ---- OFF-RAMP (symmetric to the on-ramp above): a car that finished
+        // work and now wants a lot/shoulder slot must NOT be dropped off the
+        // ring here -- setGoal() would then beeline a straight chord from
+        // wherever it happens to be lapping straight to the slot, cutting
+        // diagonally across the whole infield (the "doesn't look like it drives
+        // to the parking spot" report). Instead keep it on the ring, record
+        // where it's headed, and let frame() peel it off once it reaches the
+        // exit gate -- so it drives out through the pit entry and up the access
+        // road like a real car. Destination is refreshed every broadcast (a
+        // slot index can shift as the lot fills); it's inert data until the
+        // peel fires.
+        sp.loopExit = { pt: p.pt, room: p.room };
+      } else {
+        sp.loopApproach = null; sp.pendingLoopMeta = null; // abandon any in-progress on-ramp walk
+        setGoal(sp, p.pt, p.room);
+      }
+    }
+  }
+  // Anyone no longer in the payload has been shown out. Don't just delete them:
+  // send them out the front door and down to the street to say goodbye.
+  for (const id of [...sprites.keys()]) {
+    if (sessions.find(s => s.id === id)) continue;
+    const sp = sprites.get(id);
+    sprites.delete(id);
+    // Strip the ring HERE, at the hand-off. syncSelection() only walks
+    // `sprites`, so once this element becomes a ghost nothing can reach it
+    // again -- clearing `selected` fixes the variable, not the DOM, and the
+    // ring would ride out to the street welded on.
+    if (sp.el) sp.el.classList.remove('selected');
+    if (selected === id) { selected = null; renderSide(); }
+    if (!sp.last) { if (sp.el) sp.el.remove(); continue; }  // never rendered; nothing to say goodbye to
+
+    // A departing car was possibly still loop-tracked last frame; sp.x/sp.y
+    // already hold its correct live position (loopTrack ran before layout()
+    // ever sees the session is gone -- frame() calls it every frame,
+    // layout() only on a broadcast), so handing off to the ordinary ghost
+    // walker below is already continuous. Just stop the tracker.
+    sp.onLoop = false; sp.loopMeta = null;
+
+    sp.leaving = true;
+    sp.goal = null;
+    // Aim for a spot on the road, offset so several leavers don't stack.
+    const ex = THEME.exit, spread = ex.spreadX[1] - ex.spreadX[0];
+    const street = { x: ex.spreadX[0] + (hash(id) % spread), y: ex.y };
+    sp.path = route({ x: sp.x, y: sp.y }, THEME.outsideRegion || 'outside', street);
+    ghosts.set(id, { s: { ...sp.last, state: 'idle', chore: null }, sp });
+  }
+  seeded = true;
+}
+
+// ---- characters --------------------------------------------------------------
+// The actor's own anatomy (buildActor/updateActor: parts, wardrobe, heft,
+// props) is theme-owned -- see public/themes/house/render.js. This file only
+// keeps what THEMES.md §3.3 says stays host-owned no matter the theme: the
+// generic per-frame state (position, facing, walking/selection/tier
+// classes, the name tag) that make the HUD and panel truthful regardless of
+// what a theme draws.
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs = {}) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+function syncSelection() {
+  for (const [id, sp] of sprites) {
+    if (sp.el) sp.el.classList.toggle('selected', id === selected);
+  }
+  // Ghosts are on their way out and can never be the selection, so clear them
+  // unconditionally. Belt and braces: this function used to walk `sprites`
+  // only, which is how a ring got stranded on a departing visitor.
+  for (const [, gh] of ghosts) {
+    if (gh.sp.el) gh.sp.el.classList.remove('selected');
+  }
+}
+
+// ---- ADDED (car-theme lot fix): fixed world-space nose angle for a car
+// settled into a lot stall -- see updateSim()'s `parkedNoseIn` below. -90
+// degrees is world "north" (-y): the lot's stalls are drawn with their
+// wheel-stops at the top of each row band (themes/car/render.js's drawLot()),
+// so nose-up is what points every parked car's front at its own stop. A
+// parked car's angle is static, never dynamic, so this is one constant, not
+// a per-frame formula the way the loop's heading is.
+const PARK_ANGLE_DEG = -90;
+
+function updateSim(s, sp) {
+  const g = sp.el; if (!g) return;
+  // World -> iso for POSITION only. The character itself stays upright and
+  // unskewed: billboarding is how isometric games draw people, and skewing them
+  // into the floor plane would make them unreadable at this size.
+  const [px, py] = proj(sp.x, sp.y);
+  // face is a horizontal flip, so the body group -- not the whole group -- is
+  // mirrored; flipping the group would mirror the name tag too.
+  // proj() already moves the character to the right screen POSITION for the
+  // current zoom; without also scaling the group itself, the house grows
+  // under a zoomed-in camera while everyone standing in it stays pinned at
+  // their un-zoomed size -- zooming in to look at someone doesn't make them
+  // bigger, which defeats the point of zoom. `scale` goes after `translate`
+  // so it grows/shrinks the character about its own local origin (already at
+  // the feet) rather than about the canvas origin.
+  g.setAttribute('transform', `translate(${px.toFixed(2)},${py.toFixed(2)}) scale(${cam.zoom})`);
+
+  const body = g.querySelector('.body');
+  const rotor = g.querySelector('.rotor'); // bodywork-only subgroup, car theme only (null on house -- no-op)
+  // ---- ADDED (car-theme lot fix, additive): a car settled into a LOT stall
+  // (state idle/stale, stopped, not on its way out) noses vertically INTO
+  // its bay instead of sitting sideways across it -- the lot's stalls are
+  // drawn as vertical bays (yellow dividers, wheel-stops top/bottom, see
+  // themes/car/render.js's drawLot()), not horizontal ones. Gated on
+  // `!!rotor` so this can never fire on house (no `.rotor` there, so this is
+  // always false regardless of state) -- the same guard the loop branch
+  // below already relies on. Gated on state rather than place/room (the
+  // host has no per-place hook to key off) so it applies to every idle/
+  // stale car wherever it actually ends up parked (lot stalls or the apron
+  // overflow field alike), and never to a blocked car (shoulder stays the
+  // original horizontal pull-off row) or a still-walking one (mid-walk cars
+  // keep the plain mirror below until they actually settle). `!sp.leaving`
+  // excludes a departing ghost -- its session state is forced to 'idle' for
+  // the farewell (see layout()'s ghosts.set()), but the farewell bubble/
+  // headlight-flash was built for a horizontal car at the exit road, not a
+  // nose-up one.
+  // Parking lot redesign (RACETRACK.md): the lot now uses VERTICAL drive aisles
+  // with HORIZONTAL stalls, so a parked car sits in its NATIVE orientation and
+  // noses left/right via the plain `face` mirror -- no rotation, no shrink. This
+  // flag (which drove the old nose-UP rotation + .parked scale) is therefore
+  // always false; parked cars fall through to the mirror branch below. Keeping
+  // the machinery (rather than deleting it) leaves the door open if a future
+  // theme wants nose-up bays again.
+  const parkedNoseIn = false;
+  if (sp.onLoop || parkedNoseIn) {
+    // Real rotation (loopTrack() computed sp.renderAngle, world-space
+    // degrees, smoothed, for the onLoop case; parkedNoseIn uses the fixed
+    // PARK_ANGLE_DEG above instead -- a parked car's angle never changes).
+    // `.body` drops the mirror entirely -- true rotation already encodes
+    // which way the nose points, a mirror on top would double up -- and
+    // only the inner `.rotor` (bodywork: the vehicle shells, exhaust,
+    // mounted prop, headlights -- see render.js) actually turns, so the
+    // hazard triangle/lamps and the sleep "z" (siblings of `.rotor`, not
+    // inside it) never do.
+    //
+    // sp.renderAngle/PARK_ANGLE_DEG is a WORLD heading; the screen isn't
+    // world space once `V` has toggled iso on (proj()'s shear scales the x-
+    // and y-difference between two points differently), so it can't be
+    // applied to the SVG directly. Re-derive the on-screen heading the same
+    // way position already goes world -> screen: project the sprite's point
+    // and a second point one small step along its world heading, through
+    // the SAME proj() the position above just used, and take the angle of
+    // that screen-space pair. That keeps rotation correct under both camera
+    // modes for free, with no separate iso-aware trig to keep in sync by
+    // hand.
+    if (rotor) {
+      const rad = (sp.onLoop ? sp.renderAngle : PARK_ANGLE_DEG) * Math.PI / 180;
+      const [x1, y1] = proj(sp.x, sp.y);
+      const [x2, y2] = proj(sp.x + Math.cos(rad) * 10, sp.y + Math.sin(rad) * 10);
+      const screenDeg = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+      rotor.setAttribute('transform', `rotate(${screenDeg.toFixed(2)})`);
+      // The ground shadow + state wash are deliberately `.rotor`'s SIBLINGS
+      // (they must not inherit the bodywork's parked shrink), so the rotate
+      // above never reaches them -- left alone, the shadow stays axis-aligned
+      // under a car that's banked hard into a corner. Bank them by the same
+      // screen heading, about their own centres, so the shadow tracks the nose
+      // through the turn.
+      const sh = g.querySelector('.shadow');    if (sh) sh.setAttribute('transform', `rotate(${screenDeg.toFixed(2)} 0 3)`);
+      const sw = g.querySelector('.statewash'); if (sw) sw.setAttribute('transform', `rotate(${screenDeg.toFixed(2)} 0 4)`);
+    }
+    body.setAttribute('transform', '');
+  } else {
+    // Blocked/walking-between-places cars: unchanged from before this
+    // upgrade -- a horizontal mirror on `.body`, which also carries the
+    // hazard triangle/lamps and zzz along with it (that's how a blocked
+    // car's triangle has always landed "behind" it regardless of which way
+    // it's parked). See theme.json: none of the places these states use are
+    // diagonal -- the shoulder bays and the portal-to-portal walks between
+    // places are all laid out on straight horizontal rows -- so a left/
+    // right mirror already reads correctly there and true rotation would
+    // buy nothing but risk.
+    if (rotor) {
+      rotor.setAttribute('transform', '');
+      // Clear the bank set above so a car that just parked (or dropped to a
+      // blocked/walking state) gets a flat, axis-aligned ground shadow again.
+      const sh = g.querySelector('.shadow');    if (sh) sh.setAttribute('transform', '');
+      const sw = g.querySelector('.statewash'); if (sw) sw.setAttribute('transform', '');
+    }
+    body.setAttribute('transform', `scale(${sp.face},1)`);
+  }
+
+  const cls = g.classList;
+  cls.toggle('walking', sp.moving);
+  cls.toggle('bye', !!sp.bye);
+  // A leaver is just walking out; none of the in-house poses apply to them.
+  cls.toggle('working', !sp.leaving && s.state === 'working');
+  cls.toggle('blocked', !sp.leaving && s.state === 'blocked');
+  cls.toggle('stale', !sp.leaving && s.state === 'stale');
+  // Added for the car theme's idle-lamp read (see themes/car/render.js) --
+  // 'idle' previously had no class hook at all here, so a theme had no way
+  // to add any per-state signal for it. house's sims.css has no `.idle`
+  // selector, so this is inert there (unaffected: idle already reads fine
+  // as "sitting on the couch/chairs", a genuinely different silhouette).
+  cls.toggle('idle', !sp.leaving && s.state === 'idle');
+  // ADDED alongside 'idle' above (car-theme lot fix): mirrors `parkedNoseIn`
+  // computed above exactly, so themes/car/render.js's stall-fit scale-down
+  // (a CSS rule keyed on this class) can never disagree with whether the
+  // rotor actually rotated the car nose-in this frame. Inert on house (no
+  // CSS selector there targets `.parked`), same doctrine as `.idle` above.
+  cls.toggle('parked', parkedNoseIn);
+  cls.toggle('gone', !!sp.gone);
+
+  // Pose is where you're BOUND to (seat/bed), not your session state -- you
+  // stand up to walk and sit back down on arrival. A ghost mid-goodbye never
+  // sits, even if `sp.pose` is stale from before it left.
+  const seated = !sp.moving && !sp.leaving && !!sp.pose;
+  cls.toggle('sitting', seated);
+  cls.toggle('lying', seated && sp.pose === 'sleep');
+
+  // Heft, tier redress, and the chore prop are theme-specific reads of the
+  // actor's own anatomy (THEMES.md §3.3) -- see themes/house/render.js's
+  // updateActor(). Everything above and below this call is generic enough
+  // to stay host-owned: it only touches class names and the tag text, never
+  // assumes what a theme's SVG parts look like.
+  renderer().updateActor(g, sp, s);
+
+  g.querySelector('.alert').setAttribute('opacity', s.state === 'blocked' ? 1 : 0);
+
+  const tag = g.querySelector('.tag');
+  const [nm, rm] = tag.childNodes;
+  const name = s.name || '?';
+  let room = s.state === 'stale' ? '' : (s.room || '');
+  if (room.length > 8) room = room.slice(0, 7) + '…';
+  if (nm.textContent !== name) nm.textContent = name;
+  const rt = room ? ' · ' + room : '';
+  if (rm.textContent !== rt) rm.textContent = rt;
+}
+
+// ---- house (canvas) ----------------------------------------------------------
+// Every drawing helper below takes the target 2D context as its first argument
+// (R4): the house is rendered once into an offscreen layer and blitted every
+// frame (see buildLayer(), further down), and the fx pass draws straight to
+// the live canvas on top of that blit -- both need the SAME functions, just
+// pointed at different contexts.
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+// Fill a rounded rect in one call -- the furniture is ~60 of these.
+function rr(c, x, y, w, h, r, fill) { roundRect(c, x, y, w, h, r); c.fillStyle = fill; c.fill(); }
+function fr(c, x, y, w, h, fill) { c.fillStyle = fill; c.fillRect(x, y, w, h); }
+function circ(c, x, y, r, fill) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fillStyle = fill; c.fill(); }
+
+// ---- camera -------------------------------------------------------------------
+// Everything upstream -- layout, pathfinding, containment, the fit proof -- stays
+// in flat WORLD coordinates. proj() is the ONLY place world becomes screen, so
+// the view is a parameter rather than an architecture: top-down and isometric are
+// the same house seen through different settings, and neither can break the
+// geometry because the geometry never moves.
+// ---- camera -------------------------------------------------------------------
+// proj() is the ONLY place world becomes screen, so the view is a parameter, not
+// an architecture. Top-down and isometric are the same house through different
+// settings, and neither can break the geometry: layout, routing, containment and
+// the seat claims all live in world space and never move.
+const cam = { iso: true, zoom: 1, px: 0, py: 0 };
+const ISO_K = 1.06;
+
+function proj(wx, wy, wz = 0) {
+  let sx, sy;
+  if (cam.iso) {
+    sx = (wx - wy) * 0.5 * ISO_K;
+    sy = (wx + wy) * 0.25 * ISO_K - wz * ISO_K;
+  } else {
+    sx = wx; sy = wy;          // plan view has no height to show, so z is ignored
+  }
+  return [sx * cam.zoom + cam.px, sy * cam.zoom + cam.py];
+}
+
+// Frame the whole lot: project the corners, then centre and scale to fill.
+// The iso view was measured filling 49% of canvas height with the road off-frame
+// because its offsets were hand-guessed; this computes them.
+function fitCamera(margin = 24) {
+  cam.zoom = 1; cam.px = 0; cam.py = 0;
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  // [970, ROAD_Y+45] in the pre-theme version -- ROAD_Y was 745, so
+  // ROAD_Y+45 === H (790) exactly; H is theme-independent (fixed world size,
+  // see the W/H comment near the top) where ROAD_Y no longer exists as a
+  // page-level constant.
+  for (const [x, y] of [[30, 30], [970, 30], [970, H], [30, H]]) {
+    const [sx, sy] = proj(x, y);
+    minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
+    minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
+  }
+  const z = Math.min((W - margin * 2) / (maxX - minX), (H - margin * 2) / (maxY - minY));
+  cam.zoom = z;
+  cam.px = (W - (maxX - minX) * z) / 2 - minX * z;
+  cam.py = (H - (maxY - minY) * z) / 2 - minY * z;
+  houseDrawn = false;
+}
+
+// A detail that lives on a vertical face (book spines, a TV screen, drawer
+// fronts). In plan view there is no vertical face, so fall back to a flat patch
+// -- otherwise it collapses to a zero-height line and vanishes.
+function vface(c, x1, y1, x2, y2, z0, z1, fill, plan) {
+  if (!cam.iso) { if (plan) poly(c, [proj(plan[0], plan[1]), proj(plan[0] + plan[2], plan[1]),
+                                  proj(plan[0] + plan[2], plan[1] + plan[3]), proj(plan[0], plan[1] + plan[3])], fill);
+                  return; }
+  poly(c, [proj(x1, y1, z0), proj(x2, y2, z0), proj(x2, y2, z1), proj(x1, y1, z1)], fill);
+}
+
+function poly(c, pts, fill) {
+  c.beginPath();
+  c.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  c.closePath();
+  c.fillStyle = fill; c.fill();
+}
+
+// A flat patch. z matters: a sink lies on the counter's TOP face (z=30), not on
+// the floor. Without it the patch is drawn at ground level and, under an iso
+// camera, slides visibly off the thing it is supposed to be set into.
+function isoFlat(c, x, y, w, h, fill, z = 0) {
+  poly(c, [proj(x, y, z), proj(x + w, y, z), proj(x + w, y + h, z), proj(x, y + h, z)], fill);
+}
+
+// Shade a colour by a factor -- the two visible side faces need to read as
+// lit differently or a box looks like a flat diamond.
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round(((n >> 16) & 255) * f));
+  const g = Math.min(255, Math.round(((n >> 8) & 255) * f));
+  const b = Math.min(255, Math.round((n & 255) * f));
+  return `rgb(${r},${g},${b})`;
+}
+
+// A box standing on the floor. Camera looks from the south-east, so the top,
+// the south face and the east face are the visible three. In plan view a box IS
+// its top face -- the sides have no extent, so drawing them would only paint
+// degenerate slivers.
+function isoBox(c, x, y, w, h, z, fill) {
+  if (!cam.iso) { isoFlat(c, x, y, w, h, fill); return; }
+  const tSW = proj(x, y + h, z), tSE = proj(x + w, y + h, z);
+  const tNE = proj(x + w, y, z), tNW = proj(x, y, z);
+  const bSW = proj(x, y + h, 0), bSE = proj(x + w, y + h, 0), bNE = proj(x + w, y, 0);
+  poly(c, [tSW, tSE, bSE, bSW], shade(fill, 0.66));   // south face
+  poly(c, [tSE, tNE, bNE, bSE], shade(fill, 0.82));   // east face
+  poly(c, [tNW, tNE, tSE, tSW], fill);                // top
+}
+
+
+// ---- debug harness -----------------------------------------------------------
+// ?boxes=1 draws every visitor's footprint and each region's containment rect,
+// reddening anything that escapes. ?fake=N synthesises N visitors. Theme-
+// independent now (THEMES.md §2.1.1): the only theme inputs are
+// ThemeEngine.containmentBox()/footprint(), everything else is generic
+// rectangle math shared with bin/check-theme.js's headless run of the same
+// check.
+const DEBUG_BOXES = QS.get('boxes') === '1';
+const FAKE_N = Number(QS.get('fake') || 0);
+
+// The boxes are WORLD-space rects, so they must be projected like everything
+// else. Drawing them raw put un-projected rectangles over an iso scene -- the
+// harness meant to check the layout was itself lying.
+function outline(c, b, stroke, fill) {
+  const p = [proj(b.l, b.t), proj(b.r, b.t), proj(b.r, b.b), proj(b.l, b.b)];
+  if (fill) poly(c, p, fill);
+  c.beginPath();
+  c.moveTo(p[0][0], p[0][1]);
+  for (let i = 1; i < 4; i++) c.lineTo(p[i][0], p[i][1]);
+  c.closePath();
+  c.strokeStyle = stroke; c.lineWidth = 1; c.stroke();
+}
+
+function drawBoxes(c) {
+  for (const name in THEME.regions) {
+    const box = ThemeEngine.containmentBox(THEME, name);
+    if (box) outline(c, box, 'rgba(90,200,255,.5)');
+  }
+  const list = [...sprites.entries()].filter(([, sp]) => !sp.moving);
+  for (const [id, sp] of list) {
+    const b = ThemeEngine.footprint(THEME, sp);
+    const region = roomAt({ x: sp.x, y: sp.y });
+    const box = ThemeEngine.containmentBox(THEME, region);
+    const escaped = box ? !ThemeEngine.inBox(b, box) : false;
+    const clash = list.some(([id2, sp2]) => id2 !== id && !sp2.moving && ThemeEngine.boxHit(b, ThemeEngine.footprint(THEME, sp2)));
+    outline(c, b, (escaped || clash) ? '#ff3c3c' : 'rgba(70,209,127,.5)',
+            (escaped || clash) ? 'rgba(255,60,60,.3)' : 'rgba(70,209,127,.12)');
+  }
+}
+
+// ---- fx layer ------------------------------------------------------------
+// The house never changes on its own -- it only moves when the camera does
+// (resize/fit/zoom/pan, all of which already clear `houseDrawn`) -- so it is
+// rendered once into an offscreen layer and blitted back every frame instead
+// of replaying ~150 furniture draw calls for a picture that hasn't changed.
+// fx is the one thing that DOES change every frame; it draws straight onto
+// the live canvas on top of that blit, through the same proj()-based helpers
+// as the house itself, so it can never come loose from the furniture it's
+// animating (DESIGN.md §4.4).
+let layer = null, lctx = null;
+function buildLayer() {
+  if (!layer) layer = document.createElement('canvas');
+  layer.width = cv.width; layer.height = cv.height;
+  lctx = layer.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  renderer().drawBackground(lctx);
+}
+
+// sims.css already stops the sims from animating; the canvas is JS, so it
+// needs its own gate. Read once at load like every other flag on this page --
+// a live toggle mid-session isn't a case worth a media-query listener.
+const REDUCE_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function lerpColor(a, b, t) {
+  const na = parseInt(a.slice(1), 16), nb = parseInt(b.slice(1), 16), t2 = Math.max(0, Math.min(1, t));
+  const mix = sh => Math.round(((na >> sh) & 255) + (((nb >> sh) & 255) - ((na >> sh) & 255)) * t2);
+  return `rgb(${mix(16)},${mix(8)},${mix(0)})`;
+}
+function rgba(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${Math.max(0, a).toFixed(3)})`;
+}
+
+// A world-space ellipse/arc, projected through the same camera as everything
+// else. Iso squashes a circle into an ellipse exactly the way isoBox's top
+// face does (compare the stove burners in drawKitchen) -- fx reuses that
+// convention instead of inventing a second one.
+function fxArc(c, wx, wy, wz, rx, ry, style, mode, lw, a0 = 0, a1 = Math.PI * 2) {
+  const [px, py] = proj(wx, wy, wz);
+  const ex = (cam.iso ? rx * ISO_K * 0.5 : rx) * cam.zoom;
+  const ey = (cam.iso ? ry * ISO_K * 0.25 : ry) * cam.zoom;
+  c.beginPath();
+  c.ellipse(px, py, Math.max(.05, ex), Math.max(.05, ey), 0, a0, a1);
+  if (mode === 'stroke') { c.strokeStyle = style; c.lineWidth = (lw || 1) * cam.zoom; c.stroke(); }
+  else { c.fillStyle = style; c.fill(); }
+}
+
+let lastNow = 0, lastDepthKey = '';
+function frame(now) {
+  // The RAF loop is started once, at boot, AFTER the initial theme has
+  // loaded (see boot() at the bottom of this file) -- THEME is never null
+  // here in practice. This guard only matters for the one frame that can
+  // land between a theme switch tearing things down and the new theme's
+  // renderer finishing its (already-resolved-by-then, but let's not assume)
+  // registration.
+  if (!THEME || !(window.THEME_RENDERERS || {})[THEME.name]) { requestAnimationFrame(frame); return; }
+
+  const dt = lastNow ? Math.min((now - lastNow) / 1000, 0.1) : 0;
+  lastNow = now;
+  // Ground + house, then fx on top of it, then (separately, in the SVG layer
+  // above the canvas) the sims themselves.
+  if (DEBUG_BOXES) {
+    // The boxes move every frame, so the debug harness bypasses the cached
+    // layer entirely and draws straight to the live canvas -- same as before
+    // the layer existed.
+    renderer().drawBackground(ctx);
+    renderer().drawFX(ctx, now / 1000);
+    drawBoxes(ctx);
+  } else if (REDUCE_MOTION) {
+    // No continuous redraw at all: paint the house and one still frame of fx,
+    // then leave the canvas alone until the camera or the session data change
+    // (see the REDUCE_MOTION check in connect()).
+    if (!houseDrawn) {
+      renderer().drawBackground(ctx);
+      renderer().drawFX(ctx, 0);
+      houseDrawn = true;
+    }
+  } else {
+    if (!houseDrawn) { buildLayer(); houseDrawn = true; }
+    ctx.drawImage(layer, 0, 0, W, H);
+    renderer().drawFX(ctx, now / 1000);
+  }
+
+  const step = (sp) => {
+    if (sp.path && sp.path.length) {
+      const p = sp.path[0], dx = p.x - sp.x, dy = p.y - sp.y, d = Math.hypot(dx, dy);
+      const s = sp.speed * dt;
+      if (Math.abs(dx) > 1) sp.face = dx > 0 ? 1 : -1;
+      if (d <= s) { sp.x = p.x; sp.y = p.y; sp.path.shift(); }
+      else { sp.x += (dx / d) * s; sp.y += (dy / d) * s; }
+      sp.moving = sp.path.length > 0;
+    } else {
+      sp.moving = false;
+      // Turn to face the thing once you arrive: a pair of columns turning inward
+      // reads as "gathered around it" rather than two strangers in a row.
+      if (sp.restFace) sp.face = sp.restFace;
+    }
+  };
+
+  for (const s of sessions) {
+    const sp = sprites.get(s.id); if (!sp) continue;
+    // Loop-bound sprites are sampled straight from the polyline formula every
+    // frame (see loopTrack() above) -- never the generic chord walker, which
+    // is exactly the bug this fixes (THEMES.md §3.2's spacing proof only
+    // holds at the loop's own uniform speed, sampled continuously).
+    if (sp.onLoop) loopTrack(sp, now / 1000, dt); else step(sp);
+    // Off-ramp arrival (see layout()'s `sp.loopExit` above): a car that went
+    // idle/blocked mid-lap stays on the ring until it comes around to the exit
+    // gate -- the loop region's anchor, the same point on-ramping cars join at
+    // and the mouth of the access road -- then peels off HERE and routes in to
+    // its slot. So it exits through the pit entry and drives up the aisle,
+    // instead of chording across the infield from wherever it stopped working.
+    if (sp.onLoop && sp.loopExit) {
+      const gate = THEME.regions[THEME.hub] && THEME.regions[THEME.hub].anchor;
+      if (gate && Math.hypot(sp.x - gate.x, sp.y - gate.y) < 40) {
+        sp.onLoop = false; sp.loopMeta = null;
+        const dest = sp.loopExit; sp.loopExit = null;
+        setGoal(sp, dest.pt, dest.room);
+      }
+    }
+    // On-ramp arrival (see layout()'s `sp.loopApproach` above): the walk to
+    // the loop region's gate anchor just finished (step() emptied its path
+    // this frame, so `!sp.moving`) -- hand off to loopTrack() starting next
+    // frame, from right here at the gate, not from wherever the car used to
+    // stand. loopLocked=false lets the existing chase (loopTrack(), already
+    // proven not to violate the loop's uniform-speed guarantee) close
+    // whatever small phase gap remains, same as any other fresh join.
+    if (sp.loopApproach && !sp.moving) {
+      sp.onLoop = true;
+      sp.loopMeta = sp.pendingLoopMeta;
+      sp.loopApproach = null; sp.pendingLoopMeta = null;
+      sp.loopLocked = false;
+    }
+    sp.last = s;               // stashed so a departing sprite can outlive its data
+    updateSim(s, sp);
+  }
+
+  // Depth sort. SVG has no z-index -- document order IS paint order -- so a
+  // visitor further from the camera must come first or they'll paint over the
+  // people in front of them. Reordered only when the order actually changes;
+  // reappending every node every frame would thrash layout.
+  // Depth is (x+y) toward an iso camera, but plain y in plan view.
+  const depth = sp => cam.iso ? sp.x + sp.y : sp.y;
+  const order = [...sprites.values(), ...[...ghosts.values()].map(g => g.sp)]
+    .filter(sp => sp.el)
+    .sort((a, b) => depth(a) - depth(b));
+  const key = order.map(sp => sp.el.dataset.id).join(',');
+  if (key !== lastDepthKey) {
+    lastDepthKey = key;
+    for (const sp of order) svg.appendChild(sp.el);
+  }
+
+  // Leavers: walk to the street, wave, then fade out.
+  const byeMs = THEME.farewell.holdMs;
+  for (const [id, gh] of ghosts) {
+    const sp = gh.sp;
+    step(sp);
+    if (!sp.moving && !sp.bye) { sp.bye = true; sp.byeAt = now; sp.face = 1; }
+    if (sp.bye && !sp.gone && now - sp.byeAt > byeMs) sp.gone = true;
+    // Removed a beat after `gone` so the fade-out transition can play.
+    if (sp.gone && now - sp.byeAt > byeMs + 900) {
+      if (sp.el) sp.el.remove();
+      ghosts.delete(id);
+      continue;
+    }
+    updateSim(gh.s, sp);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Empty clicks fall through to here. They must NOT deselect: you watch someone
+// walk to a new chore, click to follow, miss by a few px -- losing the panel
+// there is maddening. Esc or ✕ clears.
+board.addEventListener('click', () => {});
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && selected) { selected = null; renderSide(); syncSelection(); }
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'v' || e.key === 'V') setView(!cam.iso);
+  if (e.key === 'f' || e.key === 'F') fitCamera();
+});
+
+// ---- camera controls ----------------------------------------------------------
+function setView(iso) {
+  cam.iso = iso;
+  document.getElementById('b-view').textContent = iso ? 'iso' : 'top';
+  fitCamera();
+  // Snap everyone to their new screen position rather than letting the walk
+  // animation interpolate across a projection change.
+  lastDepthKey = '';
+  localStorage.setItem('sim-view', iso ? 'iso' : 'top');
+}
+document.getElementById('b-view').onclick = () => setView(!cam.iso);
+document.getElementById('b-fit').onclick = () => fitCamera();
+
+board.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  // Zoom about the cursor: the world point under the pointer must stay put.
+  const mx = (e.clientX - r.left) * (W / r.width), my = (e.clientY - r.top) * (H / r.height);
+  const f = Math.exp(-e.deltaY * 0.0016);
+  const z2 = Math.max(0.35, Math.min(4, cam.zoom * f));
+  cam.px = mx - (mx - cam.px) * (z2 / cam.zoom);
+  cam.py = my - (my - cam.py) * (z2 / cam.zoom);
+  cam.zoom = z2;
+  houseDrawn = false;
+}, { passive: false });
+
+let drag = null;
+board.addEventListener('pointerdown', e => {
+  if (e.target.closest('.sim')) return;      // let clicks on visitors through
+  drag = { x: e.clientX, y: e.clientY, px: cam.px, py: cam.py };
+  board.setPointerCapture(e.pointerId);
+});
+board.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const r = cv.getBoundingClientRect();
+  cam.px = drag.px + (e.clientX - drag.x) * (W / r.width);
+  cam.py = drag.py + (e.clientY - drag.y) * (H / r.height);
+  houseDrawn = false;
+});
+addEventListener('pointerup', () => { drag = null; });
+
+// Default TOP-DOWN. The furniture geometry in DESIGN.md is plan-native -- exact
+// rects, machine-verified in a plan view, where every piece is flat at z=0 and
+// draw order is invisible. Isometric makes order mean depth, so every piece needs
+// a hand-maintained z and sequence; every layering bug found so far (chairs,
+// sink, trees, couches, collapsing book spines) existed only in iso, and top-down
+// had none of them. Iso stays one keypress away for anyone who wants it.
+setView(localStorage.getItem('sim-view') === 'iso');
+
+function ago(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.round(s / 60) + 'm ago';
+  return (s / 3600).toFixed(1) + 'h ago';
+}
+function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+let sideSig = '';
+// Armed state lives OUT here, not in a per-render closure. The panel rebuilds
+// whenever chore/detail change -- i.e. on every tool call of a busy session --
+// which silently disarmed the kill button between a user's two clicks. It could
+// only ever cost extra clicks, never fire early, but it made killing a working
+// session nearly impossible.
+let armedFor = null, armedAt = 0;
+const ARM_MS = 4000;
+const isArmed = id => armedFor === id && performance.now() - armedAt < ARM_MS;
+
+// Minimal theme-string hook: a theme may relabel the Clean button (the car
+// theme wants "Pit stop (/clear)" -- /clear *is* a pit stop) via
+// theme.json's optional `strings.clean`. Everything else about the button
+// (what it does, the note under it) stays host-owned; this is a label only.
+function cleanLabel() { return (THEME.strings && THEME.strings.clean) || 'Clean (/clear)'; }
+
+function renderSide() {
+  const side = document.getElementById('side');
+  const s = sessions.find(x => x.id === selected);
+  if (!s) {
+    if (sideSig === 'empty') return;
+    sideSig = 'empty';
+    side.innerHTML = '<div class="empty">Click a visitor to see what they\'re doing.</div>';
+    return;
+  }
+  // Only rebuild when something shown has changed: rebuilding resets the scroll
+  // and disarms the kill button. `age` is excluded -- it ticks every second.
+  //
+  // `detail` and `chore` used to sit in this signature too. `detail` changes
+  // on every tool call of a busy session and `chore` whenever its activity
+  // switches, so together they forced a full innerHTML rebuild -- which
+  // recreates #i-say from scratch -- on nearly every broadcast for anyone
+  // actually being watched. That's what silently wiped an in-progress answer
+  // mid-keystroke: same bug family as the kill-arm button disarming between
+  // clicks and the scroll position resetting mid-read (both already patched
+  // above/below), just a third instance of it. Rather than patch this one
+  // the same piecemeal way (save/restore value+selection+focus around the
+  // rebuild), this kills the whole family for these two fields: `chore`
+  // isn't rendered anywhere in this panel, so it's dropped outright, and
+  // `detail`'s TEXT is patched in place via #i-detail's textContent at the
+  // bottom of this function, unconditionally, every call -- so the panel
+  // still updates live -- without ever touching #i-say. Only `detail`'s
+  // PRESENCE (not its value) stays in the signature, since the DOM node
+  // itself still needs to appear/disappear when a session gains or loses a
+  // detail string.
+  const sig = JSON.stringify([s.id, s.state, !!s.detail, s.question, s.lastResponse,
+                              s.lastPrompt, s.evictable, s.pid, s.contextTokens, s.answerable, s.pane]);
+  if (sig !== sideSig) {
+  sideSig = sig;
+
+  const c = STATE_COLOR[s.state];
+  let h = `<div style="display:flex;align-items:center;gap:8px">
+    <span class="badge" style="background:${c};color:#1b1720">${STATE_LABEL[s.state]}</span>
+    <b style="font-size:15px;flex:1">${esc(s.name || '?')}</b>
+    <button id="b-close" style="flex:0 0 auto;padding:2px 8px" title="Esc">✕</button></div>`;
+  h += `<h2>${esc(s.label || 'untitled')}</h2>`;
+  h += `<div class="meta">${esc(s.room)}${s.gitBranch ? ' · ' + esc(s.gitBranch) : ''} · ${ago(s.age)}</div>`;
+  if (s.model) h += `<div class="meta">${esc(s.model)} · dressed ${esc(s.tier)}</div>`;
+  if (s.contextTokens) {
+    const pct = Math.round((s.heft || 0) * 100);
+    h += `<div class="meta">carrying ${s.contextTokens.toLocaleString()} tokens of context · heft ${pct}%</div>`;
+  }
+  if (!s.live) h += `<div class="warn">⚠ no live hook — state inferred from file age only</div>`;
+  if (s.question) h += `<div><div class="k">asking you</div><div class="q">${esc(s.question)}</div></div>`;
+  if (s.detail) h += `<div class="meta" id="i-detail">${esc(s.detail)}</div>`;
+  h += `<hr>`;
+  if (s.lastResponse) h += `<div><div class="k">claude last said</div><div class="said">${esc(s.lastResponse)}</div></div>`;
+  if (s.lastPrompt) h += `<div><div class="k">you last said</div><div class="prompt">${esc(s.lastPrompt)}</div></div>`;
+  // Typing into a session is only possible through tmux; without a pane there
+  // is no way into a live TUI's stdin at all.
+  h += `<hr>`;
+  if (s.answerable) {
+    h += `<div class="k">answer from here</div>
+      <div class="reply">
+        <input id="i-say" placeholder="type an answer…" autocomplete="off">
+        <button id="b-say">Send</button>
+      </div>
+      <div class="acts">
+        <button id="b-peek">Peek at screen</button>
+        <button id="b-clean">${esc(cleanLabel())}</button>
+      </div>
+      <div id="screen-slot"></div>
+      <div class="note">Typed into tmux pane ${esc(s.pane)}. Clean sends /clear, which resets the context and slims them down.</div>`;
+  } else {
+    h += `<div class="k">answer from here</div>
+      <div class="note">Not possible: this session isn't running under tmux, so there's no way into its stdin. Start sessions inside tmux and this becomes an answer box — and Clean starts working too.</div>`;
+  }
+
+  // Bring the real terminal window to the front. Shown whenever there's
+  // something to aim at (a pid or a tmux pane) and the daemon can focus (macOS
+  // only). Subagents carry neither pid nor pane, so the same test excludes them.
+  if (canFocus && (s.pid || s.pane)) {
+    h += `<hr><div class="k">jump to it</div>
+      <div class="acts"><button id="b-focus">Go to terminal</button></div>
+      <div id="focus-note" class="note">Raises the terminal window running this session to the front.</div>`;
+  }
+
+  h += `<hr><div class="k">show them out</div><div class="acts">
+    <button id="b-dismiss">Dismiss</button>
+    <button id="b-evict" class="danger" ${s.evictable ? '' : 'disabled'}>Kick out</button></div>`;
+  h += s.evictable
+    ? `<div class="note">Dismiss hides them here; the session keeps running. Kick out ends process ${s.pid} for real.</div>`
+    : `<div class="note">No kick out: this session has never reported a pid, so there's no process we can safely signal.</div>`;
+  h += `<div class="meta">${esc(s.cwd || '')}</div><div class="meta">${esc(s.id)}</div>`;
+
+  // A busy session rebuilds this panel on every tool call; without restoring
+  // scroll you get yanked back to the top mid-read.
+  const keepScroll = side.scrollTop;
+  const saidScroll = side.querySelector('.said') ? side.querySelector('.said').scrollTop : 0;
+  side.innerHTML = h;
+  side.scrollTop = keepScroll;
+  const said = side.querySelector('.said');
+  if (said) said.scrollTop = saidScroll;
+
+  document.getElementById('b-close').onclick = () => { selected = null; renderSide(); syncSelection(); };
+  document.getElementById('b-dismiss').onclick = () => kick(s.id, 'dismiss');
+
+  if (s.answerable) {
+    const input = document.getElementById('i-say');
+    const send = async () => {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = ''; input.disabled = true;
+      const r = await say(s.id, text);
+      input.disabled = false; input.focus();
+      if (!r.ok) { alert(`Couldn't send: ${r.error}`); input.value = text; }
+    };
+    document.getElementById('b-say').onclick = send;
+    input.onkeydown = e => { if (e.key === 'Enter') send(); e.stopPropagation(); };
+
+    document.getElementById('b-clean').onclick = async () => {
+      const r = await say(s.id, '/clear');
+      if (!r.ok) alert(`Couldn't clean: ${r.error}`);
+    };
+
+    document.getElementById('b-peek').onclick = async () => {
+      const slot = document.getElementById('screen-slot');
+      const r = await fetch(`/api/screen?id=${encodeURIComponent(s.id)}`).then(x => x.json());
+      slot.innerHTML = r.ok
+        ? `<div class="screen">${esc(r.screen.replace(/\n{3,}/g, '\n\n').trim())}</div>`
+        : `<div class="warn">${esc(r.error)}</div>`;
+    };
+  }
+
+  // Two clicks to kill: first arms, second fires. A misclick destroys real work.
+  // The armed flag is module-level so it survives the rebuilds a busy session
+  // triggers; re-applied here because this DOM node is brand new.
+  const focusBtn = document.getElementById('b-focus');
+  if (focusBtn) focusBtn.onclick = async () => {
+    focusBtn.disabled = true;
+    const r = await focusTerminal(s.id);
+    focusBtn.disabled = false;
+    const note = document.getElementById('focus-note');
+    if (!note) return;
+    note.textContent = r.ok
+      ? (r.app ? `Brought ${r.app} to the front.` : (r.note || 'Selected the tmux pane.'))
+      : (r.error || "Couldn't find this session's terminal window.");
+  };
+
+  const ev = document.getElementById('b-evict');
+  if (ev && !ev.disabled) {
+    const paint = () => {
+      const on = isArmed(s.id);
+      ev.classList.toggle('armed', on);
+      ev.textContent = on ? `Really kill pid ${s.pid}?` : 'Kick out';
+    };
+    paint();
+    ev.onclick = () => {
+      if (!isArmed(s.id)) {
+        armedFor = s.id; armedAt = performance.now();
+        paint();
+        setTimeout(() => { if (armedFor === s.id) { armedFor = null; paint(); } }, ARM_MS);
+        return;
+      }
+      armedFor = null;
+      kick(s.id, 'evict');
+    };
+  }
+  } // end if (sig !== sideSig) -- rebuild gate
+
+  // Patches #i-detail's text every call, rebuild or not, so the panel keeps
+  // showing the live detail string even on the (common) calls above that
+  // skipped the rebuild entirely -- see the comment on `sig` above. No-op
+  // when the detail line isn't currently in the DOM (session has no detail
+  // right now, or nothing is selected -- guarded by the `!s`/`return` above).
+  const detailEl = document.getElementById('i-detail');
+  if (detailEl) detailEl.textContent = s.detail || '';
+}
+
+// S1-c: the boot token cupola injected into this very page (see
+// server.js's static handler) -- a drive-by page can't read or guess it, so
+// it doubles the Origin/Host guard as proof this request came from the page
+// the daemon actually served. Every write call attaches it.
+const WRITE_HEADERS = {
+  'Content-Type': 'application/json',
+  'X-Sim-Token': window.__SIM_TOKEN__ || '',
+};
+
+async function say(id, text) {
+  try {
+    const r = await fetch('/api/say', { method: 'POST', headers: WRITE_HEADERS,
+      body: JSON.stringify({ id, text }) });
+    return await r.json();
+  } catch (e) { return { ok: false, error: String(e) }; }
+}
+
+async function focusTerminal(id) {
+  try {
+    const r = await fetch('/api/focus', { method: 'POST', headers: WRITE_HEADERS,
+      body: JSON.stringify({ id }) });
+    return await r.json();
+  } catch (e) { return { ok: false, error: String(e) }; }
+}
+
+async function kick(id, mode) {
+  try {
+    const r = await fetch('/api/kick', { method: 'POST', headers: WRITE_HEADERS,
+      body: JSON.stringify({ id, mode }) });
+    const j = await r.json();
+    if (!j.ok) { alert(`Couldn't do that: ${j.error}`); return; }
+    selected = null; renderSide(); syncSelection();
+  } catch (e) { alert(String(e)); }
+}
+
+function setLive(on, text) {
+  document.getElementById('live-dot').className = 'dot' + (on ? '' : ' off');
+  document.getElementById('live-text').textContent = text;
+}
+function counts() {
+  const c = { working: 0, blocked: 0, idle: 0, stale: 0 };
+  for (const s of sessions) c[s.state]++;
+  document.getElementById('n-work').textContent = c.working;
+  document.getElementById('n-block').textContent = c.blocked;
+  document.getElementById('n-idle').textContent = c.idle;
+  document.getElementById('n-stale').textContent = c.stale;
+  document.title = c.blocked ? `(${c.blocked}) your house` : 'your house';
+}
+function connect() {
+  const es = new EventSource('/events');
+  es.onmessage = ev => {
+    const msg = JSON.parse(ev.data);
+    sessions = msg.sessions;
+    if (typeof msg.canFocus === 'boolean') canFocus = msg.canFocus;
+    setLive(true, sessions.length + ' in view');
+    layout(); counts(); renderSide(); syncSelection();
+    // Under reduced motion the canvas only repaints when told to (see frame());
+    // a fresh session snapshot is one of the few things worth a repaint for --
+    // it keeps occupancy-driven fx (the stove, the plants...) honest without
+    // ever animating continuously.
+    if (REDUCE_MOTION) houseDrawn = false;
+  };
+  es.onerror = () => setLive(false, 'daemon offline');
+}
+
+// ---- theme selection & switching -------------------------------------------
+// ?theme=<name> wins, else localStorage['sim-theme'] (the existing 'sim-view'
+// key is the pattern), else 'house' -- THEMES.md §6.
+function initialThemeName() {
+  return QS.get('theme') || localStorage.getItem('sim-theme') || 'house';
+}
+
+async function populateThemePicker() {
+  const sel = document.getElementById('b-theme');
+  let list = [{ name: 'house', title: THEME.title || 'House' }];
+  try {
+    const r = await fetch('/api/themes');
+    if (r.ok) {
+      const j = await r.json();
+      if (Array.isArray(j.themes) && j.themes.length) list = j.themes;
+    }
+  } catch {}
+  sel.innerHTML = '';
+  for (const t of list) {
+    const opt = document.createElement('option');
+    opt.value = t.name; opt.textContent = t.title || t.name;
+    sel.appendChild(opt);
+  }
+  sel.value = THEME.name;
+  sel.onchange = () => {
+    const name = sel.value;
+    if (name === THEME.name) return;
+    switchTheme(name).catch(e => {
+      alert(`Couldn't load theme "${name}": ${e.message}`);
+      sel.value = THEME.name;
+    });
+  };
+}
+
+// Tear down every sprite and sticky claim, load the new theme + its
+// renderer, and re-run layout() against the SAME session list -- sessions
+// and the current selection survive because they never belonged to the
+// theme (THEMES.md §6: "sessions and selection survive because they never
+// belonged to the theme"). No reload.
+async function switchTheme(name) {
+  const t = await fetchTheme(name);
+  await loadRendererScript(t);
+  if (t.render && !(window.THEME_RENDERERS || {})[t.name]) {
+    throw new Error(`${t.render} did not register a renderer for "${t.name}"`);
+  }
+
+  for (const sp of sprites.values()) if (sp.el) sp.el.remove();
+  sprites.clear();
+  for (const gh of ghosts.values()) if (gh.sp.el) gh.sp.el.remove();
+  ghosts.clear();
+  heldSeat.clear(); heldFloor.clear(); heldLoop.clear();
+  loopCache.clear();   // place ids can repeat across themes with different geometry
+  selected = null; sideSig = '';
+
+  THEME = t;
+  seeded = false;      // next layout() snaps sprites straight into place, no road walk-in
+  houseDrawn = false;
+  lastDepthKey = '';
+  fitCamera();
+  if (sessions.length) layout();
+  counts(); renderSide(); syncSelection();
+
+  localStorage.setItem('sim-theme', name);
+  const url = new URL(location.href);
+  url.searchParams.set('theme', name);
+  history.replaceState(null, '', url);
+}
+
+// ?fake=N&chore=cooking&state=stale&heft=ramp -- synthesise a crowd instead of
+// connecting. Ids are stable so names and colours don't churn between reloads.
+function startFakeHarness() {
+  const chore = QS.get('chore'), state = QS.get('state');
+  const CHORES = ['cooking', 'watering', 'tidying', 'phone', 'reading', 'window'];
+  const STATES = ['working', 'idle', 'stale', 'blocked'];
+  const NAMES = ['Ada','Bo','Cy','Dot','Eli','Fen','Gus','Hal','Ida','Jo','Kit','Lou','Mo','Nell',
+                 'Ora','Pip','Quinn','Roz','Sal','Tex','Uma','Vic','Wren','Xan','Yuri','Zed','Ari',
+                 'Bea','Cleo','Dex','Ember','Fitz','Gil','Hux','Iris','Jem','Koa','Lark','Milo','Nix'];
+  sessions = Array.from({ length: FAKE_N }, (_, i) => ({
+    id: 'fake-' + i,
+    name: NAMES[i % NAMES.length],
+    room: 'wt' + (i % 8),
+    state: state || STATES[i % STATES.length],
+    chore: chore || CHORES[i % CHORES.length],
+    tier: ['haiku', 'sonnet', 'opus', 'fable'][i % 4],
+    heft: QS.get('heft') === 'ramp' ? i / Math.max(1, FAKE_N - 1) : 0,
+    label: 'fake session ' + i,
+    age: 1000, live: true, evictable: false, answerable: false,
+  }));
+  // seeded stays false through this first layout() so they're placed where they
+  // belong rather than walking in from the road; layout() flips it afterwards.
+  layout(); counts();
+  setLive(true, `FAKE ${FAKE_N}`);
+}
+
+// ---- boot -------------------------------------------------------------------
+// Everything above this point (camera controls, click/keydown handlers,
+// setView(), the RAF loop) is safe to register before a theme exists: frame()
+// self-guards until THEME is set, and setView()/fitCamera() no longer read
+// anything theme-specific (see the H comment in fitCamera). Only the very
+// first layout() -- and everything that depends on the session list existing
+// in a real room -- has to wait for the theme fetch to resolve.
+(async function boot() {
+  try {
+    THEME = await fetchTheme(initialThemeName());
+    await loadRendererScript(THEME);
+  } catch (e) {
+    // Fall back to the house rather than a permanently blank page if a
+    // ?theme= or a stale localStorage value names something that no longer
+    // exists.
+    console.error(e);
+    if (initialThemeName() !== 'house') {
+      THEME = await fetchTheme('house');
+      await loadRendererScript(THEME);
+    } else {
+      throw e;
+    }
+  }
+  fitCamera();
+  populateThemePicker();
+
+  if (FAKE_N > 0) startFakeHarness();
+  else connect();
+})();
+</script>
+</body>
+</html>

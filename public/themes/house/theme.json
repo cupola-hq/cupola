@@ -1,0 +1,89 @@
+{
+  "format": 1,
+  "name": "house",
+  "title": "Your house",
+  "world": { "w": 1000, "h": 790 },
+  "wall": 9,
+  "outsideRegion": "outside",
+  "hub": "living",
+
+  "regions": {
+    "kitchen": { "l": 60, "r": 500, "t": 60, "b": 350 },
+    "study":   { "l": 500, "r": 940, "t": 60, "b": 350 },
+    "living":  { "l": 60,  "r": 940, "t": 350, "b": 640, "anchor": { "x": 500, "y": 500 } },
+    "outside": { "anchor": { "x": 500, "y": 700 } }
+  },
+
+  "portals": {
+    "kdoor": { "x": 250, "y": 350, "joins": ["kitchen", "living"] },
+    "sdoor": { "x": 750, "y": 350, "joins": ["study", "living"] },
+    "front": { "x": 500, "y": 640, "joins": ["living", "outside"] }
+  },
+
+  "places": [
+    { "id": "cooking", "kind": "grid", "region": "kitchen",
+      "accepts": { "state": "working", "activity": ["exec"] }, "faceAt": 360,
+      "prop": "cooking", "overflow": "mill",
+      "grid": { "x": 360, "y": 162, "cols": 2, "colPitch": 88, "rowPitch": 68, "span": 143 } },
+
+    { "id": "watering", "kind": "grid", "region": "study",
+      "accepts": { "state": "working", "activity": ["edit"] }, "faceAt": 566,
+      "prop": "watering", "overflow": "mill",
+      "grid": { "x": 554, "y": 168, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 137 } },
+
+    { "id": "tidying", "kind": "grid", "region": "study",
+      "accepts": { "state": "working", "activity": ["plan"] }, "faceAt": 664,
+      "prop": "tidying", "overflow": "mill",
+      "grid": { "x": 664, "y": 168, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 137 } },
+
+    { "id": "phone", "kind": "grid", "region": "study",
+      "accepts": { "state": "working", "activity": ["delegate"] }, "faceAt": 776,
+      "prop": "phone", "overflow": "mill",
+      "grid": { "x": 774, "y": 168, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 137 } },
+
+    { "id": "reading", "kind": "grid", "region": "living",
+      "accepts": { "state": "working", "activity": ["read"] }, "faceAt": 150,
+      "prop": "reading", "overflow": "mill",
+      "grid": { "x": 156, "y": 432, "cols": 2, "colPitch": 88, "rowPitch": 68, "span": 163 } },
+
+    { "id": "window", "kind": "grid", "region": "living",
+      "accepts": { "state": "working", "activity": ["net"] }, "faceAt": 840,
+      "prop": "window", "overflow": "mill",
+      "grid": { "x": 840, "y": 430, "cols": 2, "colPitch": 88, "rowPitch": 68, "span": 68 } },
+
+    { "id": "bed", "kind": "slots", "region": "study", "prio": 0,
+      "accepts": { "state": "stale" }, "pose": "sleep", "overflow": "couch2",
+      "slots": [ { "x": 851, "y": 245, "face": -1 }, { "x": 905, "y": 245, "face": -1 } ] },
+
+    { "id": "couch2", "kind": "slots", "region": "living", "prio": 1,
+      "accepts": { "state": ["stale", "idle"] }, "homeOnly": ["idle"], "pose": "sit", "overflow": "couch3",
+      "slots": [ { "x": 707, "y": 470, "face": 1 }, { "x": 707, "y": 540, "face": 1 } ] },
+
+    { "id": "couch3", "kind": "slots", "region": "living", "prio": 2,
+      "accepts": { "state": ["stale", "idle"] }, "homeOnly": ["idle"], "pose": "sit", "overflow": "mill",
+      "slots": [ { "x": 785, "y": 575, "face": 1 }, { "x": 838, "y": 575, "face": -1 }, { "x": 891, "y": 575, "face": -1 } ] },
+
+    { "id": "chairs", "kind": "slots", "region": "kitchen", "prio": 3,
+      "accepts": { "state": "idle" }, "homeOnly": ["idle"], "pose": "sit", "overflow": "mill",
+      "slots": [ { "x": 120, "y": 168, "face": 1 }, { "x": 222, "y": 168, "face": -1 },
+                 { "x": 120, "y": 288, "face": 1 }, { "x": 222, "y": 288, "face": -1 } ] },
+
+    { "id": "mill", "kind": "field", "region": "living",
+      "accepts": { "state": ["idle", "blocked", "stale", "working"] },
+      "grid": { "x": 400, "y": 400, "cols": 4, "colPitch": 104, "rowPitch": 96, "span": 195 } }
+  ],
+
+  "actor": {
+    "footprint": {
+      "standing": { "w": 82, "h": 65, "dy": 3.5 },
+      "posed":    { "w": 46, "h": 61, "dy": 5.5 }
+    },
+    "speed": { "base": 38, "jitter": 15 }
+  },
+
+  "entrance": { "spreadX": [120, 880], "y": 745 },
+  "exit":     { "spreadX": [150, 850], "y": 749 },
+  "farewell": { "text": "Bye!", "wave": true, "holdMs": 2600 },
+
+  "render": "themes/house/render.js"
+}

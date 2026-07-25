@@ -1,0 +1,288 @@
+{
+ "format": 1,
+ "name": "car",
+ "title": "Racetrack",
+ "world": {
+  "w": 1000,
+  "h": 790
+ },
+ "wall": 8,
+ "outsideRegion": "outside",
+ "hub": "track",
+ "regions": {
+  "lot": {
+   "l": 210,
+   "r": 790,
+   "t": 185,
+   "b": 418,
+   "anchor": {
+    "x": 500,
+    "y": 392
+   }
+  },
+  "apron": {
+   "l": 215,
+   "r": 785,
+   "t": 428,
+   "b": 520,
+   "anchor": {
+    "x": 500,
+    "y": 475
+   }
+  },
+  "shoulder": {
+   "l": 240,
+   "r": 880,
+   "t": 598,
+   "b": 672,
+   "anchor": {
+    "x": 560,
+    "y": 635
+   }
+  },
+  "track": {
+   "l": 60,
+   "r": 940,
+   "t": 80,
+   "b": 595,
+   "anchor": {
+    "x": 500,
+    "y": 560
+   }
+  },
+  "outside": {
+   "anchor": {
+    "x": 850,
+    "y": 775
+   }
+  }
+ },
+ "portals": {
+  "gate-lot": {
+   "x": 500,
+   "y": 560,
+   "joins": [
+    "track",
+    "lot"
+   ]
+  },
+  "gate-apron": {
+   "x": 500,
+   "y": 515,
+   "joins": [
+    "apron",
+    "track"
+   ]
+  },
+  "gate-shoulder": {
+   "x": 600,
+   "y": 590,
+   "joins": [
+    "shoulder",
+    "track"
+   ]
+  },
+  "access": {
+   "x": 900,
+   "y": 600,
+   "joins": [
+    "outside",
+    "track"
+   ]
+  }
+ },
+ "places": [
+  {
+   "id": "lap",
+   "kind": "loop",
+   "region": "track",
+   "accepts": {
+    "state": "working"
+   },
+   "speed": 120,
+   "loop": {
+    "roundRect": {
+     "x": 120,
+     "y": 120,
+     "w": 760,
+     "h": 440,
+     "r": 110
+    }
+   }
+  },
+  {
+   "id": "lot",
+   "kind": "slots",
+   "region": "lot",
+   "prio": 0,
+   "accepts": {
+    "state": [
+     "idle",
+     "stale"
+    ]
+   },
+   "overflow": "apron",
+   "slots": [
+    {
+     "x": 265,
+     "y": 225,
+     "face": -1
+    },
+    {
+     "x": 405,
+     "y": 225,
+     "face": 1
+    },
+    {
+     "x": 520,
+     "y": 225,
+     "face": -1
+    },
+    {
+     "x": 660,
+     "y": 225,
+     "face": 1
+    },
+    {
+     "x": 265,
+     "y": 285,
+     "face": -1
+    },
+    {
+     "x": 405,
+     "y": 285,
+     "face": 1
+    },
+    {
+     "x": 520,
+     "y": 285,
+     "face": -1
+    },
+    {
+     "x": 660,
+     "y": 285,
+     "face": 1
+    },
+    {
+     "x": 265,
+     "y": 345,
+     "face": -1
+    },
+    {
+     "x": 405,
+     "y": 345,
+     "face": 1
+    },
+    {
+     "x": 520,
+     "y": 345,
+     "face": -1
+    },
+    {
+     "x": 660,
+     "y": 345,
+     "face": 1
+    }
+   ]
+  },
+  {
+   "id": "shoulder",
+   "kind": "slots",
+   "region": "shoulder",
+   "prio": 1,
+   "accepts": {
+    "state": "blocked"
+   },
+   "overflow": "apron",
+   "slots": [
+    {
+     "x": 300,
+     "y": 635,
+     "face": 1
+    },
+    {
+     "x": 430,
+     "y": 635,
+     "face": -1
+    },
+    {
+     "x": 560,
+     "y": 635,
+     "face": 1
+    },
+    {
+     "x": 690,
+     "y": 635,
+     "face": -1
+    },
+    {
+     "x": 820,
+     "y": 635,
+     "face": 1
+    }
+   ]
+  },
+  {
+   "id": "apron",
+   "kind": "field",
+   "region": "apron",
+   "accepts": {
+    "state": [
+     "idle",
+     "blocked",
+     "stale",
+     "working"
+    ]
+   },
+   "grid": {
+    "x": 500,
+    "y": 461,
+    "cols": 8,
+    "colPitch": 65,
+    "rowPitch": 25,
+    "span": 25
+   }
+  }
+ ],
+ "actor": {
+  "footprint": {
+   "standing": {
+    "w": 90,
+    "h": 46,
+    "dy": 0
+   },
+   "posed": {
+    "w": 78,
+    "h": 46,
+    "dy": 0
+   }
+  },
+  "speed": {
+   "base": 150,
+   "jitter": 40
+  }
+ },
+ "entrance": {
+  "spreadX": [
+   800,
+   960
+  ],
+  "y": 775
+ },
+ "exit": {
+  "spreadX": [
+   800,
+   960
+  ],
+  "y": 780
+ },
+ "farewell": {
+  "text": "Beep!",
+  "wave": true,
+  "holdMs": 2600
+ },
+ "strings": {
+  "clean": "Pit stop (/clear)"
+ },
+ "render": "themes/car/render.js"
+}

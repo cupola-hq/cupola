@@ -1,0 +1,241 @@
+/* Characters are layered SVG: each visitor is a <g class="sim"> of named parts,
+   animated with CSS transforms. The house stays on canvas underneath. */
+
+#board { position: relative; line-height: 0; }
+#board canvas, #board svg { position: absolute; inset: 0; }
+#board canvas { position: relative; }
+
+#sims { pointer-events: none; }        /* empty clicks fall through to canvas */
+.sim { pointer-events: auto; cursor: pointer; }
+
+/* Per-visitor colour comes in as --c on the group. */
+.sim .torso { fill: var(--c); }
+.sim .arm   { fill: var(--c); filter: brightness(0.88); }
+.sim .leg   { fill: #3b3348; }
+.sim .shoe  { fill: #262030; }
+.sim .head  { fill: #f2c9a0; }
+.sim .hair  { fill: var(--hair); }
+.sim .shadow { fill: rgba(0,0,0,.32); }
+.sim .eye   { fill: #2a2333; }
+
+/* --- heft: five bands from --heft (0..1), geometry-only ------------------
+   Never a transform on .torso/.body: that would compose with -- and silently
+   kill -- bobWalk and the .sitting/.lying squash (both already transform
+   .body for their own reasons). Belly rx/ry/cy are plain SVG attributes set
+   from JS once per heft change (applyHeft() in index.html), not CSS, so
+   there's no dependency on browser support for animatable geometry props.
+   Every heft-driven *transform* here lands on a node nothing else ever
+   touches: .figure (introduced solely to wrap .body + the prop slot --
+   nothing keyframes it, so it's free to carry a static whole-character
+   scale), the arm mounts (never keyframed -- the swing is on the child
+   .arm-l/.arm-r, not the mount) and .skull (wraps head+hair+eyes and is
+   never separately keyframed either). Grime is band-snapped via [data-heft]
+   rather than opacity-faded: at ~65px a fading pastel blob reads as noise,
+   a hard on/off read as dirt.
+
+   Amplitude, not detail count, is what makes this read: a first pass (belly
+   only, a 14% head bump, mild desaturation) proved indistinguishable at
+   board scale, and the fix is a real ~1.6x whole-body scale on .figure plus
+   much harder pushes on every other channel below -- not more cues. */
+.sim .belly { fill: var(--c); }
+.sim .grime-t { fill: rgba(52,38,28,.85); opacity: 0; }
+.sim[data-heft="2"] .grime-t,
+.sim[data-heft="3"] .grime-t,
+.sim[data-heft="4"] .grime-t { opacity: 1; }
+/* transform-origin sits at the shoe line, not the sim's local (0,0): a heavy
+   sim should grow up and outward from where their feet already are, not
+   balloon symmetrically and sink through the floor or float off it. */
+.sim .figure { transform-origin: 0px 18px; transform: scale(calc(1 + var(--heft, 0) * .6)); }
+.sim .skull { transform-origin: 0px -17px; transform: scale(calc(1 + var(--heft, 0) * .32)); }
+.sim .headg { transform: translateY(calc(var(--heft, 0) * 2px)); }
+/* Mounts sit just INSIDE the body's silhouette so the arms tuck against the
+   torso, not off in space beside it. The belly is the widest part and grows
+   rx 8->14 across heft (applyHeft), so the per-heft push (5px) tracks that
+   growth instead of outrunning it -- at the old 9px base + 7px/heft the arms
+   ended up floating past a heavy sim's belly. */
+.sim .arm-mount-l { transform: translateX(calc(-7px - var(--heft, 0) * 5px)); }
+.sim .arm-mount-r { transform: translateX(calc(7px + var(--heft, 0) * 5px)); }
+
+.sim .tag {
+  font: 600 10px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  fill: #fff; stroke: rgba(0,0,0,.75); stroke-width: 3px;
+  paint-order: stroke; stroke-linejoin: round;
+}
+.sim .tag .room { fill: #cfc3da; }
+
+.sim .sel { display: none; }
+.sim.selected .sel { display: block; stroke: #fff; stroke-width: 2; stroke-dasharray: 4 3; fill: none; }
+
+/* Limbs pivot from the shoulder/hip, not their centre. */
+.sim .arm-l, .sim .arm-r { transform-origin: 0px -8px; }
+.sim .leg-l, .sim .leg-r { transform-origin: 0px 6px; }
+
+/* --- walking ------------------------------------------------------------- */
+.sim.walking .leg-l { animation: stepA .52s linear infinite; }
+.sim.walking .leg-r { animation: stepB .52s linear infinite; }
+.sim.walking .arm-l { animation: swingB .52s linear infinite; }
+.sim.walking .arm-r { animation: swingA .52s linear infinite; }
+.sim.walking .body  { animation: bobWalk .26s linear infinite; }
+
+@keyframes stepA { 0%,100% { transform: rotate(20deg) } 50% { transform: rotate(-20deg) } }
+@keyframes stepB { 0%,100% { transform: rotate(-20deg) } 50% { transform: rotate(20deg) } }
+@keyframes swingA { 0%,100% { transform: rotate(14deg) } 50% { transform: rotate(-14deg) } }
+@keyframes swingB { 0%,100% { transform: rotate(-14deg) } 50% { transform: rotate(14deg) } }
+@keyframes bobWalk { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-1.2px) } }
+
+/* --- working: busy hands, not a walk ------------------------------------- */
+.sim.working:not(.walking) .arm-r { animation: fuss .9s ease-in-out infinite; }
+.sim.working:not(.walking) .arm-l { animation: fuss 1.1s ease-in-out infinite reverse; }
+@keyframes fuss { 0%,100% { transform: rotate(8deg) } 50% { transform: rotate(-22deg) } }
+
+/* --- blocked: an actual raised arm, waving ------------------------------- */
+.sim.blocked .arm-r { animation: wave .7s ease-in-out infinite; }
+@keyframes wave { 0%,100% { transform: rotate(-150deg) } 50% { transform: rotate(-124deg) } }
+.sim.blocked .alert { animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse {
+  0%   { r: 24; opacity: .55 }
+  100% { r: 40; opacity: 0 }
+}
+
+/* --- shown out: stood on the street, waving ------------------------------ */
+.sim .bubble { display: none; }
+.sim.bye .bubble { display: block; animation: pop .3s cubic-bezier(.2,1.6,.4,1) both; }
+.sim .bub-body, .sim .bub-tail { fill: #f3ecf7; }
+.sim .bub-text {
+  font: 700 9px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  fill: #241f2b;
+}
+@keyframes pop {
+  0%   { opacity: 0; transform: translateY(4px) scale(.7) }
+  100% { opacity: 1; transform: translateY(0) scale(1) }
+}
+/* Same raised arm as `blocked`, but a brisker, friendlier wave. */
+.sim.bye .arm-r { animation: wave .42s ease-in-out infinite; }
+
+/* Fade out once the goodbye has been said. */
+.sim { transition: opacity .8s ease-in; }
+.sim.gone { opacity: 0; }
+
+/* --- poses: sitting / lying, driven by sp.pose (where you're bound to),
+   NOT by session state. A seated visitor stands up to walk and sits back
+   down on arrival (updateSim gates this on `!sp.moving`); `stale` below is
+   layered independently as a MOOD (eyes shut + zzz) on top of whatever pose
+   -- or lack of one -- a resting visitor holds. A stale visitor who
+   overflowed onto the floor has no pose and simply stands with eyes shut,
+   which is the right picture for "40 corpses, 7 places to lie down". ------ */
+.sim.sitting .body { transform: translateY(6px) scale(.94); }
+.sim.sitting .leg-l, .sim.sitting .leg-r { transform: rotate(80deg) translateY(2px); }
+
+.sim .duvet, .sim .duvet-fold { display: none; }
+.sim .duvet { fill: #6f5b8c; }
+.sim .duvet-fold { fill: rgba(255,255,255,.18); }
+.sim.lying .duvet, .sim.lying .duvet-fold { display: block; }
+/* Folded-forward "sitting" legs read as noise once tucked under a blanket --
+   hide them outright and let the duvet do the work. */
+.sim.lying .leg-l, .sim.lying .leg-r { display: none; }
+/* A shortened, squashed torso peeking out above the duvet is the "under the
+   covers" read. Declared after .sitting so it wins the tie (both are
+   `.sim.X .body`, equal specificity -- later rule wins) without needing
+   `!important`. */
+.sim.lying .body { transform: translateY(6px) scale(.88, .8); }
+
+/* --- resting: eyes shut, zzz ---------------------------------------------- */
+/* transform-box: fill-box is REQUIRED here. On SVG elements transform-box
+   defaults to view-box, so `center` resolves against the whole 1000x790
+   viewBox, not the eye -- the eye gets scaled about a point ~300px away and
+   renders in empty space. It also inflates the sim's bounding box to ~365px
+   tall, which silently corrupts any geometry measured from it.
+   Do NOT blanket-apply fill-box: the limbs use absolute-length origins
+   (0px -8px) that are correct as they are. */
+.sim.stale .eye { transform: scaleY(.12); transform-box: fill-box; transform-origin: center; }
+.sim .zzz { display: none; }
+.sim.stale .zzz { display: block; animation: drift 2.6s ease-out infinite; }
+@keyframes drift {
+  0%   { transform: translate(0,0) scale(.7); opacity: 0 }
+  30%  { opacity: .75 }
+  100% { transform: translate(7px,-16px) scale(1.1); opacity: 0 }
+}
+
+/* --- wardrobe: dressed by model -------------------------------------------
+   haiku  plain tee
+   sonnet collar + tie
+   opus   blazer lapels, bowtie, pocket square
+   fable  top hat, monocle, gold tailcoat, sparkles
+   Every garment is drawn on every character and revealed by tier, so a /model
+   switch redresses instantly with no rebuild. */
+
+.sim .dress > * { display: none; }
+
+.sim .collar { fill: none; stroke: rgba(255,255,255,.85); stroke-width: 1.3; }
+.sim .tie    { fill: #c2413f; }
+.sim .lapel  { fill: rgba(0,0,0,.42); }
+.sim .bowtie { fill: #2b2333; }
+.sim .bowtie-k { fill: #2b2333; }
+.sim .pocket { fill: #f1ecf6; }
+.sim .hat-brim, .sim .hat-crown { fill: #17141d; }
+.sim .hat-band { fill: var(--gold-trim, #e8c351); }
+.sim .mono-l { fill: rgba(190,225,255,.28); stroke: var(--gold-trim, #e8c351); stroke-width: 1.1; }
+.sim .mono-chain { fill: none; stroke: var(--gold-trim, #e8c351); stroke-width: .7; }
+.sim .tails  { fill: rgba(0,0,0,.5); }
+.sim .trim   { fill: none; stroke: var(--gold-trim, #e8c351); stroke-width: .9; }
+.sim .sparkle { fill: #ffe9a3; }
+
+.sim.tier-sonnet .collar,
+.sim.tier-sonnet .tie { display: block; }
+
+.sim.tier-opus .collar,
+.sim.tier-opus .lapel,
+.sim.tier-opus .bowtie,
+.sim.tier-opus .bowtie-k,
+.sim.tier-opus .pocket { display: block; }
+
+.sim.tier-fable .lapel,
+.sim.tier-fable .bowtie,
+.sim.tier-fable .bowtie-k,
+.sim.tier-fable .tails,
+.sim.tier-fable .trim,
+.sim.tier-fable .tophat,
+.sim.tier-fable .monocle,
+.sim.tier-fable .sparkle { display: block; }
+
+/* Fable is meant to be gaudy. */
+.sim.tier-fable .sparkle { animation: twinkle 1.8s ease-in-out infinite; }
+.sim.tier-fable .sparkle:nth-of-type(2) { animation-delay: .6s; }
+.sim.tier-fable .sparkle:nth-of-type(3) { animation-delay: 1.2s; }
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(.4) }
+  50%      { opacity: 1; transform: scale(1) }
+}
+/* The hat rides the head, so it must not fight the walk bob. */
+.sim.tier-fable .tophat { transform-origin: 0 -22px; }
+.sim.walking.tier-fable .tophat { animation: hatJog .52s linear infinite; }
+@keyframes hatJog { 0%,100% { transform: rotate(-2.5deg) } 50% { transform: rotate(2.5deg) } }
+
+/* --- props --------------------------------------------------------------- */
+.sim .prop { display: none; }
+.sim.working .prop.on { display: block; }
+.sim .can-body { fill: #6fb3c9; }
+.sim .drop { fill: #8fd3e8; animation: fall 1.1s linear infinite; }
+@keyframes fall {
+  0%   { transform: translateY(0); opacity: 0 }
+  20%  { opacity: .9 }
+  100% { transform: translateY(11px); opacity: 0 }
+}
+.sim .pan { fill: #3c3644; }
+.sim .sizzle { fill: #ffb457; animation: sizzle .5s ease-out infinite; }
+@keyframes sizzle {
+  0%   { transform: translateY(0) scale(.5); opacity: .9 }
+  100% { transform: translateY(-8px) scale(1.2); opacity: 0 }
+}
+.sim .book { fill: #d8d2e6; }
+.sim .book-spine { fill: #8a5cc4; }
+.sim .page { fill: #fff; animation: flip 1.9s ease-in-out infinite; transform-origin: 0 0; }
+@keyframes flip { 0%,45% { transform: scaleX(1) } 60%,100% { transform: scaleX(-1) } }
+.sim .handset { fill: #d5484a; }
+.sim .broom-h { fill: #8a6a48; }
+.sim .broom-b { fill: #d8b45c; }
+.sim .mug { fill: #e8e3ef; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sim *, .sim { animation: none !important; }
+}
