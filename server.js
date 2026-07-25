@@ -117,9 +117,40 @@ const dismissed = new Set();
 
 // Never signal a pid without confirming it is still a claude process: pids get
 // recycled, and the wrong SIGTERM kills something the user cares about.
+//
+// Windows has no `ps` -- Git Bash/MSYS ships one, but it doesn't understand
+// `-o`/`-p` (BSD/GNU syntax) and answers with its own MSYS-subsystem pid
+// numbering anyway, not the Windows pid Node and the CLI agree on. `ps -o
+// command= -p <pid>` there just throws "unknown option", the catch below
+// swallows it, and every eviction failed with "not a claude process" --
+// even for a real one.
+//
+// A path/command-line regex (tried first) turns out actively unsafe on
+// Windows, not just inconvenient: this CLI ships as a standalone
+// `claude.exe` (verified against a real install, `~/.local/bin/claude.exe`)
+// -- but the Claude desktop app is ALSO `Claude.exe`, and Windows filenames
+// are case-insensitive, so any "does the path contain claude.exe" test
+// matches both. On a machine running both (the common case, not a corner
+// one), a recycled pid landing on a desktop-app helper process -- crashpad
+// handler, gpu-process, a renderer -- would sail right through the guard
+// it exists to be. Query the exe's own embedded product name instead
+// (`Product`, from its Win32 version resource): the CLI reports "Claude
+// Code", the desktop app just "Claude" -- an authoritative distinction
+// neither install path nor process name can fake.
 function isClaude(pid) {
   if (!pid || !Number.isInteger(pid) || pid <= 1) return false;
   try {
+    if (process.platform === 'win32') {
+      // A pid that's already gone (the common, expected case on the 4s
+      // recheck below) makes PowerShell print an error -- stdio here keeps
+      // that off the daemon's own console instead of spamming it every
+      // eviction; stdout (the actual answer) is still captured either way.
+      const out = execFileSync('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-Command',
+        `(Get-Process -Id ${pid} -ErrorAction Stop).Product`,
+      ], { encoding: 'utf8', timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+      return out.trim() === 'Claude Code';
+    }
     const out = execFileSync('ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8' });
     return /(^|\/)claude(\s|$)/.test(out.trim());
   } catch {

@@ -141,9 +141,8 @@
 //        instead of re-deriving it from `face`; see index.html's
 //        loopTrack()/updateSim() for the reference consumer -- world-space
 //        smoothing happens in loopTrack(), then the smoothed angle is
-//        re-projected through proj() in updateSim() so it comes out right
-//        under both camera modes (iso's shear means a world heading and its
-//        on-screen heading are not the same number).
+//        applied directly in updateSim() (proj() is a plain scale+pan, so
+//        world heading and on-screen heading are the same number).
 //
 // accepts.state is a string or an array of strings, matched against the
 // session's `state`. accepts.activity (grid/loop only) is an array matched

@@ -21,7 +21,7 @@
 //
 // What index.html (the host) already put in scope before this file loads,
 // and that this file is free to call directly:
-//   proj(wx,wy,wz), cam, ISO_K            -- world -> screen, the camera
+//   proj(wx,wy,wz), cam                   -- world -> screen, the camera
 //   isoBox/isoFlat/poly/vface/roundRect/rr/fr/circ/shade   -- canvas primitives
 //   fxArc, lerpColor, rgba                -- fx helpers
 //   el(tag, attrs), NS                    -- SVG element construction
@@ -289,7 +289,7 @@ function drawKitchen(c) {
   isoBox(c, 329, 69, 62, 44, 32, PAL.carcass);
   for (const [bx, by] of [[345, 83], [375, 83], [345, 99], [375, 99]]) {
     const p = proj(bx, by, 32);
-    c.beginPath(); c.ellipse(p[0], p[1], 7 * ISO_K * 0.5, 7 * ISO_K * 0.25, 0, 0, 7);
+    c.beginPath(); c.ellipse(p[0], p[1], 7 * cam.zoom, 7 * cam.zoom, 0, 0, 7);
     c.fillStyle = '#2a2530'; c.fill();
     c.strokeStyle = PAL.top; c.lineWidth = 1.2; c.stroke();
   }
@@ -306,8 +306,6 @@ function chair(c, px, py) {
   const backY = north ? py - 7 : py + 31;
   const back = () => {
     isoBox(c, px + 2, backY, 30, 5, 40, '#5c4530');
-    if (cam.iso) for (const sx of [px + 7, px + 15, px + 23])
-      vface(c, sx, backY, sx + 4, backY, 18, 38, shade('#6b4f34', 1.15));
   };
   const legs = () => {
     for (const [lx, ly] of [[px + 3, py + 3], [px + 27, py + 3], [px + 3, py + 27], [px + 27, py + 27]])
@@ -367,7 +365,13 @@ function drawBedroom(c) {
   for (const qy of [246, 278, 310]) isoFlat(c, 829, qy, 98, 1.5, 'rgba(0,0,0,.15)', 18);
   isoFlat(c, 878, 214, 1.5, 106, 'rgba(0,0,0,.10)', 18);
   isoBox(c, 825, 170, 106, 8, 46, '#4a3728');
-  vface(c, 931, 210, 931, 300, 20, 62, PAL.screen, [919, 210, 12, 90]);
+  // Wall TV: mounted in the corner above the nightstand (x838-912,y120-168),
+  // NOT beside the bed itself -- it used to sit at y210-300, which is the
+  // bed frame's own y-range (170-340), so the "screen" rendered as a dark
+  // bar fused into the right side of the mattress. y96-166 is the one open
+  // strip of this wall: below the north furniture line (y69-113) but above
+  // the headboard (y170), and clear of the nightstand's x838-912 footprint.
+  vface(c, 931, 96, 931, 166, 26, 66, PAL.screen, [919, 96, 12, 70]);
 }
 
 function drawLiving(c) {
@@ -556,8 +560,8 @@ const FX = {
   },
   'tv-b': (c, t) => {
     const glow = .5 + .2 * Math.sin(t * 3);
-    vface(c, 931, 210, 931, 300, 20, 62, lerpColor(PAL.screen, PAL.screenOn, glow), [919, 210, 12, 90]);
-    isoFlat(c, 919, 210 + ((t * 40) % 90), 12, 2, 'rgba(255,255,255,.06)', 40);
+    vface(c, 931, 96, 931, 166, 26, 66, lerpColor(PAL.screen, PAL.screenOn, glow), [919, 96, 12, 70]);
+    isoFlat(c, 919, 96 + ((t * 40) % 70), 12, 2, 'rgba(255,255,255,.06)', 40);
   },
   rinse: (c, t) => {
     isoFlat(c, 143, 79, 2, 10, rgba(PAL.water, .3 + .3 * Math.sin(t * 6)), 30);

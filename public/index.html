@@ -104,7 +104,6 @@
     </div>
     <div id="cam-ui">
       <select id="b-theme" title="Theme"></select>
-      <button id="b-view" title="V">iso</button>
       <button id="b-fit" title="F">fit</button>
       <span class="hint">scroll to zoom · drag to pan</span>
     </div>
@@ -502,9 +501,6 @@ const PARK_ANGLE_DEG = -90;
 
 function updateSim(s, sp) {
   const g = sp.el; if (!g) return;
-  // World -> iso for POSITION only. The character itself stays upright and
-  // unskewed: billboarding is how isometric games draw people, and skewing them
-  // into the floor plane would make them unreadable at this size.
   const [px, py] = proj(sp.x, sp.y);
   // face is a horizontal flip, so the body group -- not the whole group -- is
   // mirrored; flipping the group would mirror the name tag too.
@@ -544,7 +540,22 @@ function updateSim(s, sp) {
   // the machinery (rather than deleting it) leaves the door open if a future
   // theme wants nose-up bays again.
   const parkedNoseIn = false;
-  if (sp.onLoop || parkedNoseIn) {
+  // A walking (not yet onLoop) car ALSO gets true rotation, using the
+  // current leg's heading (step()'s sp.walkAngle) rather than sp.renderAngle
+  // -- added because the access road (themes/car/render.js's drawAccessRoad)
+  // runs NORTH-SOUTH, breaking the old assumption behind the mirror-only
+  // branch below ("none of the places these states use are diagonal"): a car
+  // driving that road was mirrored left-right same as ever, so it visibly
+  // slid up/down the road nose-sideways instead of pointing the way it
+  // drove. On the still-horizontal legs (shoulder bays, lot approach)
+  // atan2(dy,dx) comes out ~0/180 anyway, so this reproduces the old mirror
+  // look there for free -- this only changes anything on a leg that isn't
+  // horizontal. Gated on `rotor` (car theme only) and `sp.moving` (a
+  // SETTLED car -- parked, blocked, waiting -- still wants the fixed
+  // nose-in/pulled-off mirror below, not whatever stale heading it arrived
+  // on).
+  const walking = !!rotor && sp.moving && sp.walkAngle != null;
+  if (sp.onLoop || parkedNoseIn || walking) {
     // Real rotation (loopTrack() computed sp.renderAngle, world-space
     // degrees, smoothed, for the onLoop case; parkedNoseIn uses the fixed
     // PARK_ANGLE_DEG above instead -- a parked car's angle never changes).
@@ -555,48 +566,37 @@ function updateSim(s, sp) {
     // hazard triangle/lamps and the sleep "z" (siblings of `.rotor`, not
     // inside it) never do.
     //
-    // sp.renderAngle/PARK_ANGLE_DEG is a WORLD heading; the screen isn't
-    // world space once `V` has toggled iso on (proj()'s shear scales the x-
-    // and y-difference between two points differently), so it can't be
-    // applied to the SVG directly. Re-derive the on-screen heading the same
-    // way position already goes world -> screen: project the sprite's point
-    // and a second point one small step along its world heading, through
-    // the SAME proj() the position above just used, and take the angle of
-    // that screen-space pair. That keeps rotation correct under both camera
-    // modes for free, with no separate iso-aware trig to keep in sync by
-    // hand.
+    // sp.renderAngle/PARK_ANGLE_DEG/sp.walkAngle is a WORLD heading. Now that
+    // proj() is a plain uniform scale+pan (no iso shear), world heading and
+    // screen heading are the same angle, so it applies to the SVG as-is --
+    // back when iso was still a toggle, this used to re-derive it by
+    // projecting the sprite's point and a second point one small step along
+    // its heading and taking the angle of that screen-space pair, since
+    // iso's shear scaled the x/y difference between two points differently.
     if (rotor) {
-      const rad = (sp.onLoop ? sp.renderAngle : PARK_ANGLE_DEG) * Math.PI / 180;
-      const [x1, y1] = proj(sp.x, sp.y);
-      const [x2, y2] = proj(sp.x + Math.cos(rad) * 10, sp.y + Math.sin(rad) * 10);
-      const screenDeg = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+      const screenDeg = sp.onLoop ? sp.renderAngle : (walking ? sp.walkAngle : PARK_ANGLE_DEG);
       rotor.setAttribute('transform', `rotate(${screenDeg.toFixed(2)})`);
-      // The ground shadow + state wash are deliberately `.rotor`'s SIBLINGS
-      // (they must not inherit the bodywork's parked shrink), so the rotate
-      // above never reaches them -- left alone, the shadow stays axis-aligned
-      // under a car that's banked hard into a corner. Bank them by the same
-      // screen heading, about their own centres, so the shadow tracks the nose
-      // through the turn.
-      const sh = g.querySelector('.shadow');    if (sh) sh.setAttribute('transform', `rotate(${screenDeg.toFixed(2)} 0 3)`);
-      const sw = g.querySelector('.statewash'); if (sw) sw.setAttribute('transform', `rotate(${screenDeg.toFixed(2)} 0 4)`);
+      // The ground shadow is deliberately `.rotor`'s SIBLING (it must not
+      // inherit the bodywork's parked shrink), so the rotate above never
+      // reaches it -- left alone, it stays axis-aligned under a car that's
+      // banked hard into a corner. Bank it by the same screen heading, about
+      // its own centre, so it tracks the nose through the turn.
+      const sh = g.querySelector('.shadow'); if (sh) sh.setAttribute('transform', `rotate(${screenDeg.toFixed(2)} 0 3)`);
     }
     body.setAttribute('transform', '');
   } else {
-    // Blocked/walking-between-places cars: unchanged from before this
-    // upgrade -- a horizontal mirror on `.body`, which also carries the
-    // hazard triangle/lamps and zzz along with it (that's how a blocked
-    // car's triangle has always landed "behind" it regardless of which way
-    // it's parked). See theme.json: none of the places these states use are
-    // diagonal -- the shoulder bays and the portal-to-portal walks between
-    // places are all laid out on straight horizontal rows -- so a left/
-    // right mirror already reads correctly there and true rotation would
-    // buy nothing but risk.
+    // Settled (stationary) cars only from here -- parked in a lot stall,
+    // pulled off on the shoulder, waiting: a horizontal mirror on `.body`,
+    // which also carries the hazard triangle/lamps and zzz along with it
+    // (that's how a blocked car's triangle has always landed "behind" it
+    // regardless of which way it's parked). Every one of these places lays
+    // its slots out in a horizontal row, so a left/right mirror reads
+    // correctly here -- true rotation would buy nothing but risk.
     if (rotor) {
       rotor.setAttribute('transform', '');
       // Clear the bank set above so a car that just parked (or dropped to a
       // blocked/walking state) gets a flat, axis-aligned ground shadow again.
-      const sh = g.querySelector('.shadow');    if (sh) sh.setAttribute('transform', '');
-      const sw = g.querySelector('.statewash'); if (sw) sw.setAttribute('transform', '');
+      const sh = g.querySelector('.shadow'); if (sh) sh.setAttribute('transform', '');
     }
     body.setAttribute('transform', `scale(${sp.face},1)`);
   }
@@ -667,31 +667,22 @@ function circ(c, x, y, r, fill) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fillSty
 // ---- camera -------------------------------------------------------------------
 // Everything upstream -- layout, pathfinding, containment, the fit proof -- stays
 // in flat WORLD coordinates. proj() is the ONLY place world becomes screen, so
-// the view is a parameter rather than an architecture: top-down and isometric are
-// the same house seen through different settings, and neither can break the
-// geometry because the geometry never moves.
-// ---- camera -------------------------------------------------------------------
-// proj() is the ONLY place world becomes screen, so the view is a parameter, not
-// an architecture. Top-down and isometric are the same house through different
-// settings, and neither can break the geometry: layout, routing, containment and
-// the seat claims all live in world space and never move.
-const cam = { iso: true, zoom: 1, px: 0, py: 0 };
-const ISO_K = 1.06;
+// the view is a parameter rather than an architecture. Top-down only now (the
+// isometric camera was removed -- iso makes draw order mean depth, and every
+// layering bug ever found in this app -- chairs, sink, trees, couches,
+// collapsing book spines -- existed only there; top-down had none of them);
+// z is accepted and ignored, kept only so callers (isoBox/vface/fxArc) don't
+// need two signatures.
+const cam = { zoom: 1, px: 0, py: 0 };
 
 function proj(wx, wy, wz = 0) {
-  let sx, sy;
-  if (cam.iso) {
-    sx = (wx - wy) * 0.5 * ISO_K;
-    sy = (wx + wy) * 0.25 * ISO_K - wz * ISO_K;
-  } else {
-    sx = wx; sy = wy;          // plan view has no height to show, so z is ignored
-  }
-  return [sx * cam.zoom + cam.px, sy * cam.zoom + cam.py];
+  return [wx * cam.zoom + cam.px, wy * cam.zoom + cam.py];
 }
 
 // Frame the whole lot: project the corners, then centre and scale to fill.
-// The iso view was measured filling 49% of canvas height with the road off-frame
-// because its offsets were hand-guessed; this computes them.
+// Computed rather than hand-guessed offsets -- back when this used fixed
+// numbers, the (now-removed) iso view measured out at just 49% of canvas
+// height with the road off-frame.
 function fitCamera(margin = 24) {
   cam.zoom = 1; cam.px = 0; cam.py = 0;
   let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
@@ -712,13 +703,16 @@ function fitCamera(margin = 24) {
 }
 
 // A detail that lives on a vertical face (book spines, a TV screen, drawer
-// fronts). In plan view there is no vertical face, so fall back to a flat patch
-// -- otherwise it collapses to a zero-height line and vanishes.
+// fronts). In plan view there is no vertical face, so it's drawn as a flat
+// patch at `plan` instead -- x1/y1/x2/y2/z0/z1 are the isometric-only face
+// this used to draw before iso was removed; kept as parameters so call sites
+// (which still pass them) didn't all need editing, but they're unused now.
+// A call with no `plan` (there was exactly one, a chair-back detail with no
+// flat equivalent) simply draws nothing, same as it already did in top view.
 function vface(c, x1, y1, x2, y2, z0, z1, fill, plan) {
-  if (!cam.iso) { if (plan) poly(c, [proj(plan[0], plan[1]), proj(plan[0] + plan[2], plan[1]),
-                                  proj(plan[0] + plan[2], plan[1] + plan[3]), proj(plan[0], plan[1] + plan[3])], fill);
-                  return; }
-  poly(c, [proj(x1, y1, z0), proj(x2, y2, z0), proj(x2, y2, z1), proj(x1, y1, z1)], fill);
+  if (!plan) return;
+  poly(c, [proj(plan[0], plan[1]), proj(plan[0] + plan[2], plan[1]),
+            proj(plan[0] + plan[2], plan[1] + plan[3]), proj(plan[0], plan[1] + plan[3])], fill);
 }
 
 function poly(c, pts, fill) {
@@ -729,9 +723,10 @@ function poly(c, pts, fill) {
   c.fillStyle = fill; c.fill();
 }
 
-// A flat patch. z matters: a sink lies on the counter's TOP face (z=30), not on
-// the floor. Without it the patch is drawn at ground level and, under an iso
-// camera, slides visibly off the thing it is supposed to be set into.
+// A flat patch. `z` is a leftover from the (now-removed) iso camera -- a sink
+// on the counter's top face used to need z=30 to sit above the counter
+// instead of sliding down to floor level -- proj() ignores it in top-down,
+// kept only so call sites (which still pass it) didn't all need editing.
 function isoFlat(c, x, y, w, h, fill, z = 0) {
   poly(c, [proj(x, y, z), proj(x + w, y, z), proj(x + w, y + h, z), proj(x, y + h, z)], fill);
 }
@@ -746,18 +741,11 @@ function shade(hex, f) {
   return `rgb(${r},${g},${b})`;
 }
 
-// A box standing on the floor. Camera looks from the south-east, so the top,
-// the south face and the east face are the visible three. In plan view a box IS
-// its top face -- the sides have no extent, so drawing them would only paint
-// degenerate slivers.
+// A box standing on the floor. In plan view a box IS its top face -- the
+// sides have no extent, so it's just a flat rect at z0; `z` (former height)
+// is unused now that the isometric side faces it used to size are gone.
 function isoBox(c, x, y, w, h, z, fill) {
-  if (!cam.iso) { isoFlat(c, x, y, w, h, fill); return; }
-  const tSW = proj(x, y + h, z), tSE = proj(x + w, y + h, z);
-  const tNE = proj(x + w, y, z), tNW = proj(x, y, z);
-  const bSW = proj(x, y + h, 0), bSE = proj(x + w, y + h, 0), bNE = proj(x + w, y, 0);
-  poly(c, [tSW, tSE, bSE, bSW], shade(fill, 0.66));   // south face
-  poly(c, [tSE, tNE, bNE, bSE], shade(fill, 0.82));   // east face
-  poly(c, [tNW, tNE, tSE, tSW], fill);                // top
+  isoFlat(c, x, y, w, h, fill);
 }
 
 
@@ -836,13 +824,11 @@ function rgba(hex, a) {
 }
 
 // A world-space ellipse/arc, projected through the same camera as everything
-// else. Iso squashes a circle into an ellipse exactly the way isoBox's top
-// face does (compare the stove burners in drawKitchen) -- fx reuses that
-// convention instead of inventing a second one.
+// else.
 function fxArc(c, wx, wy, wz, rx, ry, style, mode, lw, a0 = 0, a1 = Math.PI * 2) {
   const [px, py] = proj(wx, wy, wz);
-  const ex = (cam.iso ? rx * ISO_K * 0.5 : rx) * cam.zoom;
-  const ey = (cam.iso ? ry * ISO_K * 0.25 : ry) * cam.zoom;
+  const ex = rx * cam.zoom;
+  const ey = ry * cam.zoom;
   c.beginPath();
   c.ellipse(px, py, Math.max(.05, ex), Math.max(.05, ey), 0, a0, a1);
   if (mode === 'stroke') { c.strokeStyle = style; c.lineWidth = (lw || 1) * cam.zoom; c.stroke(); }
@@ -850,7 +836,12 @@ function fxArc(c, wx, wy, wz, rx, ry, style, mode, lw, a0 = 0, a1 = Math.PI * 2)
 }
 
 let lastNow = 0, lastDepthKey = '';
+// Real wall-clock time of the last frame() run, from performance.now() --
+// NOT `lastNow` (a rAF timestamp, meaningless while rAF itself has stopped
+// ticking) -- read by the setInterval safety net below to notice a stall.
+let lastFrameAt = performance.now();
 function frame(now) {
+  lastFrameAt = performance.now();
   // The RAF loop is started once, at boot, AFTER the initial theme has
   // loaded (see boot() at the bottom of this file) -- THEME is never null
   // here in practice. This guard only matters for the one frame that can
@@ -890,6 +881,13 @@ function frame(now) {
       const p = sp.path[0], dx = p.x - sp.x, dy = p.y - sp.y, d = Math.hypot(dx, dy);
       const s = sp.speed * dt;
       if (Math.abs(dx) > 1) sp.face = dx > 0 ? 1 : -1;
+      // World-space heading of THIS leg, degrees -- additive to the existing
+      // left/right `face` mirror (still set above, house still reads only
+      // that), consumed by updateSim()'s car-theme rotor rotation so a
+      // walking car (e.g. up/down the access road) actually points the way
+      // it's driving instead of only ever mirroring left-right, which reads
+      // fine on a horizontal row and "sideways" on anything vertical.
+      if (d > 0.01) sp.walkAngle = Math.atan2(dy, dx) * 180 / Math.PI;
       if (d <= s) { sp.x = p.x; sp.y = p.y; sp.path.shift(); }
       else { sp.x += (dx / d) * s; sp.y += (dy / d) * s; }
       sp.moving = sp.path.length > 0;
@@ -943,8 +941,7 @@ function frame(now) {
   // visitor further from the camera must come first or they'll paint over the
   // people in front of them. Reordered only when the order actually changes;
   // reappending every node every frame would thrash layout.
-  // Depth is (x+y) toward an iso camera, but plain y in plan view.
-  const depth = sp => cam.iso ? sp.x + sp.y : sp.y;
+  const depth = sp => sp.y;
   const order = [...sprites.values(), ...[...ghosts.values()].map(g => g.sp)]
     .filter(sp => sp.el)
     .sort((a, b) => depth(a) - depth(b));
@@ -973,28 +970,33 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-// Empty clicks fall through to here. They must NOT deselect: you watch someone
-// walk to a new chore, click to follow, miss by a few px -- losing the panel
-// there is maddening. Esc or ✕ clears.
-board.addEventListener('click', () => {});
+// Safety net: browsers throttle requestAnimationFrame hard for a tab that
+// isn't the visible/selected one -- sometimes to a crawl, sometimes to a
+// dead stop -- and cupola's whole premise is a window glanced at from a
+// second monitor, not the focused tab (verified: this page reports
+// visibilityState "hidden" the instant it isn't the front tab, at which
+// point every session's position/rotor math -- confirmed correct by
+// stepping it by hand -- simply never runs again, reading as a fleet
+// frozen mid-lap). setInterval isn't exempt from the same throttling, but
+// browsers cap it at "at least 1 tick/sec" rather than "zero," so it makes
+// a low-frequency backstop: if frame() hasn't actually run recently, drive
+// one directly. A live rAF keeps refreshing lastFrameAt on its own, so this
+// only ever fires the gap and steps aside the moment rAF resumes.
+setInterval(() => {
+  if (performance.now() - lastFrameAt > 700) frame(performance.now());
+}, 500);
+
+// Empty clicks fall through to here -- clear the selection, same as Esc or ✕.
+board.addEventListener('click', () => {
+  if (selected) { selected = null; renderSide(); syncSelection(); }
+});
 addEventListener('keydown', e => {
   if (e.key === 'Escape' && selected) { selected = null; renderSide(); syncSelection(); }
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'v' || e.key === 'V') setView(!cam.iso);
   if (e.key === 'f' || e.key === 'F') fitCamera();
 });
 
 // ---- camera controls ----------------------------------------------------------
-function setView(iso) {
-  cam.iso = iso;
-  document.getElementById('b-view').textContent = iso ? 'iso' : 'top';
-  fitCamera();
-  // Snap everyone to their new screen position rather than letting the walk
-  // animation interpolate across a projection change.
-  lastDepthKey = '';
-  localStorage.setItem('sim-view', iso ? 'iso' : 'top');
-}
-document.getElementById('b-view').onclick = () => setView(!cam.iso);
 document.getElementById('b-fit').onclick = () => fitCamera();
 
 board.addEventListener('wheel', e => {
@@ -1025,13 +1027,14 @@ board.addEventListener('pointermove', e => {
 });
 addEventListener('pointerup', () => { drag = null; });
 
-// Default TOP-DOWN. The furniture geometry in DESIGN.md is plan-native -- exact
+// TOP-DOWN only. The furniture geometry in DESIGN.md is plan-native -- exact
 // rects, machine-verified in a plan view, where every piece is flat at z=0 and
-// draw order is invisible. Isometric makes order mean depth, so every piece needs
-// a hand-maintained z and sequence; every layering bug found so far (chairs,
-// sink, trees, couches, collapsing book spines) existed only in iso, and top-down
-// had none of them. Iso stays one keypress away for anyone who wants it.
-setView(localStorage.getItem('sim-view') === 'iso');
+// draw order is invisible. Isometric made order mean depth, so every piece needed
+// a hand-maintained z and sequence; every layering bug ever found (chairs, sink,
+// trees, couches, collapsing book spines) existed only in iso, and top-down had
+// none of them -- the iso camera has since been removed outright rather than
+// kept as a toggle.
+fitCamera();
 
 function ago(ms) {
   const s = Math.round(ms / 1000);
@@ -1296,8 +1299,7 @@ function connect() {
 }
 
 // ---- theme selection & switching -------------------------------------------
-// ?theme=<name> wins, else localStorage['sim-theme'] (the existing 'sim-view'
-// key is the pattern), else 'house' -- THEMES.md §6.
+// ?theme=<name> wins, else localStorage['sim-theme'], else 'house' -- THEMES.md §6.
 function initialThemeName() {
   return QS.get('theme') || localStorage.getItem('sim-theme') || 'house';
 }
@@ -1390,12 +1392,12 @@ function startFakeHarness() {
 }
 
 // ---- boot -------------------------------------------------------------------
-// Everything above this point (camera controls, click/keydown handlers,
-// setView(), the RAF loop) is safe to register before a theme exists: frame()
-// self-guards until THEME is set, and setView()/fitCamera() no longer read
-// anything theme-specific (see the H comment in fitCamera). Only the very
-// first layout() -- and everything that depends on the session list existing
-// in a real room -- has to wait for the theme fetch to resolve.
+// Everything above this point (camera controls, click/keydown handlers, the
+// RAF loop) is safe to register before a theme exists: frame() self-guards
+// until THEME is set, and fitCamera() no longer reads anything theme-specific
+// (see the H comment in fitCamera). Only the very first layout() -- and
+// everything that depends on the session list existing in a real room -- has
+// to wait for the theme fetch to resolve.
 (async function boot() {
   try {
     THEME = await fetchTheme(initialThemeName());

@@ -43,16 +43,15 @@ if (!document.getElementById('car-theme-style')) {
    rotate() outright). One scale knob, not four redrawn smaller shells. */
 .car.parked .hull { transform: scale(.46); transform-origin: 0px 0px; }
 
-/* Ground marks (shadow, state wash) are siblings of .body/.rotor -- built
-   that way so state colour travels with the car through every transition
-   (see the .statewash comment below) -- so they never mirror or rotate
-   with it either, and need their own correction here once parked: the
-   same shrink as .hull, plus a 90deg turn so the wide "landscape" ellipse
-   drawn to match a horizontal car reads as the narrower portrait patch a
-   nose-in car actually casts. Left alone (full size, unrotated) this was
-   the biggest single reason the lot read messy -- a large grey blob sized
-   for the OLD sideways car sitting under the new, smaller, turned one. */
-.car.parked .shadow, .car.parked .statewash { transform: rotate(90deg) scale(.62); transform-origin: center; }
+/* Ground shadow is a sibling of .body/.rotor -- built that way so it never
+   mirrors or rotates with it either, and needs its own correction here once
+   parked: the same shrink as .hull, plus a 90deg turn so the wide
+   "landscape" ellipse drawn to match a horizontal car reads as the narrower
+   portrait patch a nose-in car actually casts. Left alone (full size,
+   unrotated) this was the biggest single reason the lot read messy -- a
+   large grey blob sized for the OLD sideways car sitting under the new,
+   smaller, turned one. */
+.car.parked .shadow { transform: rotate(90deg) scale(.62); transform-origin: center; }
 
 .car .moto, .car .sedan, .car .suv, .car .limo { display: none; }
 .car .sedan { display: block; }
@@ -61,7 +60,15 @@ if (!document.getElementById('car-theme-style')) {
 .car.tier-opus .suv { display: block; }
 .car.tier-fable .limo { display: block; }
 
-.car .shadow { fill: rgba(0,0,0,.35); }
+/* Ground shadow only while actually driving (looping or walking a leg) --
+   hidden the instant a car settles (idle/stale in a stall, blocked pulled
+   off, or working still mid-arrival-lap doesn't count as settled either,
+   it's .working = on the loop = always moving). A stationary shadow read
+   as a permanent grey smudge under every parked car, not a depth cue --
+   worse once .statewash (the wider, coloured ground mark) was removed and
+   this was the only thing left sitting under a car going nowhere. */
+.car .shadow { fill: rgba(0,0,0,.35); display: none; }
+.car.walking .shadow, .car.working .shadow { display: block; }
 
 /* colour: the whole body reads in --c, desaturating/darkening with heft
    exactly like the house's people (same proven "amplitude not detail
@@ -101,18 +108,6 @@ if (!document.getElementById('car-theme-style')) {
   20%  { opacity: .8 }
   100% { transform: translate(-14px,-4px) scale(1.6); opacity: 0 }
 }
-
-/* ---- state wash: a colour mounted on the CAR (not the place), so state
-   reads the same on the loop, in the lot, on an overflow row, or mid-
-   transition -- position stops being the only encoding (the reviewer's
-   core complaint: "every position looks like parking"). Exclusive of
-   blocked (the halo already owns that read) and stale (stale's colour IS
-   the absence of colour -- see the dim filter below, its own read). Fable's
-   call: peripheral vision keys on colour before shape, so this one ellipse
-   does more legibility work than any per-state prop. ---------------------- */
-.car .statewash { display: none; opacity: .28; }
-.car.working .statewash { display: block; fill: #35c46f; }
-.car.idle .statewash { display: block; fill: #ffc23d; }
 
 /* ---- idle: waiting for you, not switched off -- headlights stay lit
    (constant-on, never blinking: blinking is blocked's exclusively) so an
@@ -181,7 +176,7 @@ if (!document.getElementById('car-theme-style')) {
    stale are the SAME 'lot' slots place -- the place can't hand out two
    different poses to two different occupants of the same slot, so the car
    itself decides its own look purely from session state, exactly like
-   every other state read in this file (statewash, idlelamp, halo).
+   every other state read in this file (idlelamp, halo).
    A COVER READ WRONG (author's call, after seeing it live): a tarp thrown
    over a car sitting in an ordinary lot stall looks like an error, not a
    sleeping session. Every stale car is a perfectly normal, fully visible
@@ -241,7 +236,11 @@ const ASPHALT = '#302b39', ASPHALT_HI = '#3c3547', INFIELD = '#2c4a2e',
       // instead -- it's the same pavement as the loop, just a spur off it,
       // so it has to look like the loop, not the lot. ----------------------
       LOT_CURB = '#6e6b76', LOT_PAD = '#55555e', LOT_AISLE = '#4c4c54',
-      LOT_LINE = '#d9b64a', LOT_STOP_LT = '#8b8894', LOT_STOP_DK = '#2c2933';
+      LOT_LINE = '#d9b64a', LOT_STOP_LT = '#8b8894', LOT_STOP_DK = '#2c2933',
+      // ---- lot median trees -- a vivid, saturated green so the canopies
+      // read as planted trees against both the pale concrete pad and the
+      // median's own dull planter fill, not just a darker patch of it.
+      TREE_CANOPY_DK = '#1f5e34', TREE_CANOPY = '#2f7a44', TREE_TRUNK = '#4a3624';
 
 // ---- activity props (mounted per-tier via CSS .propslot transform,
 // except `delegate` which is always towed behind regardless of vehicle
@@ -413,10 +412,6 @@ function buildActor(s) {
   g.appendChild(el('rect', { class: 'hit', x: -50, y: -26, width: 100, height: 52 }));
 
   g.appendChild(el('ellipse', { class: 'shadow', cx: 0, cy: 3, rx: 34, ry: 15 }));
-  // State wash (see the CSS comment above): a ground-plane colour under the
-  // shadow's footprint, on by state, not by place -- so it travels with the
-  // car through every transition instead of living in the bay art.
-  g.appendChild(el('ellipse', { class: 'statewash', cx: 0, cy: 4, rx: 40, ry: 11 }));
 
   const body = el('g', { class: 'body' });
   const chassis = el('g', { class: 'chassis' });
@@ -653,11 +648,9 @@ function drawTrack(c) {
 // in one, which now noses in to match: index.html's updateSim applies a
 // fixed, static rotate() to the car's `.rotor` for any settled idle/stale
 // car (`parkedNoseIn`, world angle PARK_ANGLE_DEG = -90, i.e. nose-up/
-// north), re-projected through the same proj()-based technique the loop's
-// true rotation already used, so it comes out correct under both cameras
-// for free. Axis-aligned rects are still the one shape guaranteed to
-// project correctly in both the top-down and iso camera with zero extra
-// math (Fable's call) -- getting the ORIENTATION right (portrait stall,
+// north), applied the same way the loop's true rotation already was.
+// Axis-aligned rects are still the simplest shape to reason about here
+// (Fable's call) -- getting the ORIENTATION right (portrait stall,
 // portrait car) took a reshape of the paint, not a diagonal. Geometry
 // matches theme.json's `lot` region/slots exactly: l210 r790 t185 b418,
 // 5px curb inset, two close-packed row-pairs (222/271 and 332/381) split by
@@ -679,6 +672,26 @@ const LOT_ROWS = [225, 285, 345];
 const AISLE1 = [310, 360], AISLE2 = [565, 615];   // [left,right] x of each vertical lane
 const XAISLE = [375, 410];                          // [top,bottom] y of the bottom cross-aisle
 const MEDIAN = [450, 475];                          // planter between B and C
+// Evenly spaced down the median's own span (iy..XAISLE[0], computed in
+// drawLot below as 190..375) -- hand-placed rather than derived so the
+// spacing reads intentional (a row of street trees), not mechanically even.
+const MEDIAN_TREES = [215, 282, 350];
+
+// A single canopy + trunk, top-down: two overlapping fxArc blobs (a darker
+// under-layer offset from a lighter one) read as leaf-cover volume at this
+// scale far better than a single flat circle would -- same "two shades, not
+// one flat fill" trick the loop's own asphalt/asphalt-hi edge uses. fxArc is
+// host-provided (index.html), same convention as every other round ground
+// object here.
+function drawTree(c, x, y) {
+  fxArc(c, x + 1, y + 5, 0, 3, 2, TREE_TRUNK, 'fill');       // trunk, peeking from the canopy's base
+  fxArc(c, x, y, 0, 11, 7, TREE_CANOPY_DK, 'fill');          // canopy under-layer
+  fxArc(c, x - 2.5, y - 2, 0, 8, 5, TREE_CANOPY, 'fill');    // lit offset layer, gives it volume
+}
+
+function drawMedianTrees(c) {
+  for (const y of MEDIAN_TREES) drawTree(c, (MEDIAN[0] + MEDIAN[1]) / 2, y);
+}
 
 function drawLot(c) {
   isoFlat(c, LOT.l, LOT.t, LOT.w, LOT.h, LOT_CURB);           // curb frame
@@ -692,6 +705,7 @@ function drawLot(c) {
   isoFlat(c, AISLE2[0], iy, AISLE2[1] - AISLE2[0], ib - iy, LOT_AISLE);
   isoFlat(c, ix, XAISLE[0], iw, XAISLE[1] - XAISLE[0], LOT_AISLE);
   isoFlat(c, MEDIAN[0], iy, MEDIAN[1] - MEDIAN[0], XAISLE[0] - iy, '#2f4a34'); // planter
+  drawMedianTrees(c);
 
   // Entrance mouth through the bottom curb, on the access-road centreline.
   isoFlat(c, 476, LOT.t + LOT.h - 5, 48, 5, LOT_AISLE);
@@ -715,9 +729,12 @@ function drawLot(c) {
       const l = x - HALF, r = x + HALF;
       isoFlat(c, l, cy - TOP, r - l, 2, LOT_LINE);     // top edge
       isoFlat(c, l, cy + TOP - 2, r - l, 2, LOT_LINE); // bottom edge
-      const noseX = face < 0 ? l + 1 : r - 5;          // wheel stop at the nose
-      isoFlat(c, noseX, cy - 16, 2, 12, LOT_STOP_LT);
-      isoFlat(c, noseX + 2, cy - 16, 2, 12, LOT_STOP_DK);
+      // Wheel stop spans the full stall width (flush inside the top/bottom
+      // lines), not just a short segment floating in the middle -- a real
+      // parking bumper runs the width of the space, not a third of it.
+      const noseX = face < 0 ? l + 1 : r - 5;
+      isoFlat(c, noseX, cy - (TOP - 2), 2, 2 * (TOP - 2), LOT_STOP_LT);
+      isoFlat(c, noseX + 2, cy - (TOP - 2), 2, 2 * (TOP - 2), LOT_STOP_DK);
     }
   }
 }
@@ -764,26 +781,83 @@ function drawApron(c) {
 }
 
 function drawShoulder(c) {
-  isoFlat(c, 232, 590, 656, 90, SHOULDER);
-  isoFlat(c, 232, 590, 656, 8, ASPHALT_HI);
+  isoFlat(c, 172, 590, 656, 90, SHOULDER);
+  isoFlat(c, 172, 590, 656, 8, ASPHALT_HI);
   // Static amber/dark chevron edge -- scene grammar for "the warning zone",
   // deliberately never animated (Fable: keep exactly one flashing system on
   // the whole board, and it belongs to the blocked car, not the scenery).
-  for (let x = 240; x < 880; x += 26) {
+  for (let x = 180; x < 820; x += 26) {
     fillWorldPoly(c, [{ x, y: 606 }, { x: x + 13, y: 598 }, { x: x + 26, y: 606 }, { x: x + 13, y: 614 }],
       (Math.floor((x - 240) / 26) % 2 === 0) ? CHEVRON : '#241f2b');
   }
 }
 
-// ---- fix #3: this used to also paint a dark 220x240 slab plus a run of
-// disconnected tan dashes hanging off the shoulder's bottom-right corner --
-// a leftover road fragment that connected to no portal, no region, and no
-// route() ever walked through it (grep confirms: nothing in theme.json or
-// route() ever targets that area). It just sat there underlapping the
-// hazard cars. Removed outright rather than reconciled into a real road --
-// the shoulder already has its one real connection (gate-shoulder, back to
-// the track) and doesn't need a second. Plain grass now, same as the rest
-// of the infield outside the shoulder's own painted strip.
+// ---- entrance/exit road -- the world's one connection to the outside:
+// theme.json's `access` portal (875,540) is where arriving sessions route in
+// and departing ones route out (its entrance/exit spreadX, 845..900, spawns
+// and un-spawns them right under it, on the loop's SE corner). An earlier
+// pass here painted a road fragment near this same corner that connected to
+// no portal and no route() ever walked through, and removed it outright
+// rather than fix it -- that left `access` with no pavement at all, so
+// arrivals crossed open grass.
+//
+// A hand-guessed rectangle for the flare (tried first) undershot the actual
+// curve badly: the loop's outer edge on a rounded-rect corner isn't at a
+// fixed y, it sweeps from y450 (at the corner's rightmost point, x908) down
+// to y588 (where the corner ends and the flat bottom straight begins) --
+// nothing a straight box edge can hug. Fixed by building the road's top
+// edge from the SAME outer-ring polyline drawTrack() paints (ringPts()),
+// filtered down to just this corner's arc, so it's geometrically guaranteed
+// to meet the tarmac with zero gap, whatever CENTER/LANE happen to be.
+const ACCESS_ROAD = { l: 840, r: 908 };
+
+function drawAccessRoad(c) {
+  const outer = ringPts(CENTER.x - LANE, CENTER.y - LANE, CENTER.w + LANE * 2, CENTER.h + LANE * 2, CENTER.r + LANE);
+  // y > mid-height restricts this to the BOTTOM-right corner's arc -- the
+  // top-right corner shares the same x-range (908 down to 770) at y92..230,
+  // and without this filter the two would interleave once sorted by x.
+  const arc = outer
+    .filter(p => p.x >= ACCESS_ROAD.l && p.x <= ACCESS_ROAD.r && p.y > CENTER.y + CENTER.h / 2)
+    .sort((a, b) => a.x - b.x);
+  if (!arc.length) return;
+
+  // Run to the world's own bottom edge -- fitCamera's frame is exactly
+  // world 30..970 x 30..790, so this reaches it cleanly for any x now that
+  // the camera is a plain top-down scale+pan (no iso shear mixing x into
+  // depth, which used to mean a strip sitting at x840..908 needed y well
+  // past 790 to visually reach that same corner).
+  const bottom = 790;
+  const poly = [{ x: arc[0].x, y: bottom }, ...arc, { x: arc[arc.length - 1].x, y: bottom }];
+  fillWorldPoly(c, poly, ASPHALT);
+
+  // Dashed centerline, same style as the other roads. Anchored on the road's
+  // actual horizontal centre (l/r midpoint) -- NOT the arc's middle-indexed
+  // point, which sits at the arc's middle ANGLE, not its middle x (the 16
+  // corner segments are evenly spaced by angle, so equal angle steps near
+  // x908 barely move in x while steps near x840 move a lot; the middle
+  // index's x comes out around 889, well right of the strip's true 874
+  // centre -- reads as an off-centre dash instead of a lane marking).
+  const cx = (ACCESS_ROAD.l + ACCESS_ROAD.r) / 2;
+  let topY = arc[0].y;
+  for (let i = 0; i < arc.length - 1; i++) {
+    if (arc[i].x <= cx && arc[i + 1].x >= cx) {
+      const t = (cx - arc[i].x) / (arc[i + 1].x - arc[i].x || 1);
+      topY = arc[i].y + (arc[i + 1].y - arc[i].y) * t;
+      break;
+    }
+  }
+  c.save();
+  c.setLineDash([8, 8]);
+  c.strokeStyle = 'rgba(232,227,239,.3)';
+  c.lineWidth = 1.2;
+  c.beginPath();
+  const [sx1, sy1] = proj(cx, topY + 6);
+  const [sx2, sy2] = proj(cx, bottom - 4);
+  c.moveTo(sx1, sy1); c.lineTo(sx2, sy2);
+  c.stroke();
+  c.restore();
+}
+
 function drawOutside(c) {
   c.fillStyle = '#141119'; c.fillRect(0, 0, W, H);
   isoFlat(c, -200, -200, 1400, 1200, GRASS);
@@ -800,6 +874,7 @@ function drawBackground(ctx) {
   drawRoad(ctx);
   drawLot(ctx);
   drawShoulder(ctx);
+  drawAccessRoad(ctx);
 }
 
 // ---- fx (ambient, per-frame) -----------------------------------------------
@@ -807,7 +882,7 @@ function drawBackground(ctx) {
 // only ever a car lapping the track), so there is no stationary "floor" left
 // to light up by activity. Ambient ground fx for the still-stationary states
 // (idle's headlight cones, stale's dim filter+zzz) already live on the CAR
-// itself (see the .statewash/.idlelamp/.stale CSS above) rather than the
+// itself (see the .idlelamp/.stale CSS above) rather than the
 // scenery, so drawFX has nothing left to do -- kept as a no-op to satisfy the
 // render contract (THEMES.md: drawBackground/drawFX/buildActor/updateActor).
 function drawFX(c, t) {}
