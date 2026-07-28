@@ -1,3 +1,5 @@
+<img src="public/logo.svg" width="72" height="72" alt="">
+
 # Cupola
 
 An ambient, glanceable view of your live Claude Code sessions. Every running
@@ -7,8 +9,12 @@ working, who's raised a hand for you, who's gone quiet. A cupola is the little
 rooftop dome you watch your whole domain from; this is that, for your agents.
 
 ```
-node server.js          # then open http://localhost:7777
+npx cupola
 ```
+
+That's it — it starts the daemon, offers to install the Claude Code hooks, and
+opens http://localhost:7777. Running from a clone instead works the same way:
+`node server.js` starts just the daemon, no CLI niceties.
 
 No dependencies, no build — Node only. Binds to loopback only: it serves your
 prompts and questions verbatim, so don't expose it (see [Staying safe](#staying-safe)).
@@ -143,8 +149,12 @@ JSONL supplies identity.
 ## Hooks
 
 ```
-node install-hooks.js            # merge into ~/.claude/settings.json
-node install-hooks.js --remove   # restores it byte-identically
+cupola install-hooks    # merge into ~/.claude/settings.json
+cupola remove-hooks     # restores it byte-identically
+
+# equivalent, from a clone:
+node install-hooks.js
+node install-hooks.js --remove
 ```
 
 Merges alongside existing hooks rather than replacing them, backs up first, and
@@ -212,6 +222,14 @@ session to "gone quiet."
   only a real `Notification` raises one.
 - **No remote / multi-machine.** Loopback by design. Cupola watches the sessions
   on the machine it runs on; it is not a hosted dashboard.
+
+## Contributing
+
+Bug reports, theme ideas, and PRs are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for how the codebase is tested (there's no
+automated suite — a fake-crowd harness and a theme conformance checker stand
+in for one), the zero-dependency constraint, and what's already been decided
+against (see [Deliberately not done](#deliberately-not-done) above).
 
 ## License
 

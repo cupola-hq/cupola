@@ -91,10 +91,15 @@
 /* --- blocked: an actual raised arm, waving ------------------------------- */
 .sim.blocked .arm-r { animation: wave .7s ease-in-out infinite; }
 @keyframes wave { 0%,100% { transform: rotate(-150deg) } 50% { transform: rotate(-124deg) } }
-.sim.blocked .alert { animation: pulse 1.6s ease-out infinite; }
+/* transform:scale, not an `r` animation -- r/cx/cy are geometry attributes,
+   so animating them repaints every frame; transform+opacity are the two
+   properties the compositor can run without touching layout. Same visual
+   ring (r24->r40 = 1.667x), non-scaling-stroke keeps the ring's 2px edge
+   from thickening as it scales up. */
+.sim.blocked .alert { animation: pulse 1.6s ease-out infinite; transform-origin: 0px -2px; }
 @keyframes pulse {
-  0%   { r: 24; opacity: .55 }
-  100% { r: 40; opacity: 0 }
+  0%   { transform: scale(1); opacity: .55 }
+  100% { transform: scale(1.667); opacity: 0 }
 }
 
 /* --- shown out: stood on the street, waving ------------------------------ */

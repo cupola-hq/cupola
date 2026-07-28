@@ -131,7 +131,7 @@ function buildActor(s) {
 
   g.appendChild(el('ellipse', { class: 'shadow', cx: 0, cy: 17, rx: 13, ry: 4.6 }));
   g.appendChild(el('circle', { class: 'alert', cx: 0, cy: -2, r: 24, fill: 'none',
-    stroke: '#ffc94a', 'stroke-width': 2, opacity: 0 }));
+    stroke: '#ffc94a', 'stroke-width': 2, opacity: 0, 'vector-effect': 'non-scaling-stroke' }));
 
   const body = el('g', { class: 'body' });
 
@@ -281,21 +281,80 @@ function updateActor(g, sp, s) {
 // shade() are already defined by index.html (the host); see the contract
 // note at the top of this file.
 
+// rr() (unlike isoBox/isoFlat/poly) does NOT call proj() -- it draws directly
+// in raw canvas pixels, no pan/zoom applied. Every furniture piece below is
+// declared in WORLD coordinates, same as the rest of this file, so calling
+// rr() on them directly would only be right by coincidence at fitCamera's
+// exact default view: the instant a viewer scrolls to zoom or drags to pan,
+// world-projected things (walls, floors, sims) move and scale together while
+// raw-pixel rr() shapes stay frozen in their original screen position and
+// size -- furniture visibly detaches from the room (found live, scroll-to-
+// zoom is right there in the header). rrw() is the fix: project the corner
+// and scale w/h/r by cam.zoom before handing off to rr(), so rounded
+// furniture pans and zooms exactly like everything drawn with isoBox always
+// has. Every call below goes through this, never rr() directly.
+function rrw(c, x, y, w, h, r, fill) {
+  const [sx, sy] = proj(x, y);
+  rr(c, sx, sy, w * cam.zoom, h * cam.zoom, r * cam.zoom, fill);
+}
+
+// Same rr() treatment as the couch/bed, applied house-wide: round anything
+// that's a physical piece of furniture (wood, fabric, appliance casing),
+// leave anything architectural (walls, floors, dividers) or a flat surface
+// (screens, spines, drawer-front detail) sharp -- a monitor doesn't get
+// softer corners than the desk it sits on, and a floor doesn't get corners
+// at all. Shadows only go under furniture that reads as free-standing
+// (table, chairs, fridge, sink cabinet) -- a counter run built into the wall
+// doesn't cast one, same logic as the wall itself never getting one.
 function drawKitchen(c) {
-  isoBox(c, 69, 69, 350, 44, 30, PAL.top);
-  isoFlat(c, 108, 75, 72, 32, shade(PAL.metal, 0.9), 30);
-  isoFlat(c, 112, 79, 64, 24, '#4a4655', 30);
-  poly(c, [proj(142, 69, 30), proj(146, 69, 30), proj(146, 69, 40), proj(142, 69, 40)], PAL.metalHi);
-  isoBox(c, 329, 69, 62, 44, 32, PAL.carcass);
+  rrw(c, 69, 69, 350, 44, 6, PAL.top);
+  rrw(c, 108, 75, 72, 32, 5, shade(PAL.metal, 0.9));
+  rrw(c, 112, 79, 64, 24, 4, '#4a4655');
+  // Faucet: was a poly() whose paired proj() points differed only in the
+  // ignored z argument -- the same degenerate zero-area quad the fridge
+  // handle had -- so it painted nothing. Flat metal detail, same isoFlat
+  // treatment as the fridge's handle/light: a base plate at the counter's
+  // back edge plus a spout neck ending at (143,79), exactly where
+  // FX.rinse's falling water stream starts, so the stream reads as coming
+  // out of the spout.
+  isoFlat(c, 138, 70, 12, 4, PAL.metal);
+  isoFlat(c, 141, 70, 5, 10, PAL.metalHi);
+  // Cutting board on the otherwise-bare stretch of counter between sink and
+  // stove: a placed wooden object, so rounded like the table (not sharp like
+  // the appliance-front details); the knife on it is thin rigid metal, so it
+  // stays a sharp isoFlat like the faucet above. Countertop object, not
+  // free-standing furniture -- no grounding shadow, same rule as the counter
+  // run itself.
+  rrw(c, 214, 77, 44, 28, 4, '#8a6a48');
+  rrw(c, 218, 81, 36, 20, 3, 'rgba(0,0,0,.10)');
+  isoFlat(c, 226, 89, 20, 2.5, PAL.metalHi);
+  isoFlat(c, 222, 88.5, 5, 3.5, '#4a3524');
+  rrw(c, 326, 66, 68, 50, 8, 'rgba(0,0,0,.20)');
+  rrw(c, 329, 69, 62, 44, 6, PAL.carcass);
   for (const [bx, by] of [[345, 83], [375, 83], [345, 99], [375, 99]]) {
     const p = proj(bx, by, 32);
     c.beginPath(); c.ellipse(p[0], p[1], 7 * cam.zoom, 7 * cam.zoom, 0, 0, 7);
     c.fillStyle = '#2a2530'; c.fill();
-    c.strokeStyle = PAL.top; c.lineWidth = 1.2; c.stroke();
+    // lineWidth is raw pixels, so it takes the same cam.zoom scaling the
+    // ellipse radii just above already get -- an unscaled 1.2px ring outline
+    // thins to near-invisible relative to everything else when zoomed in.
+    c.strokeStyle = PAL.top; c.lineWidth = 1.2 * cam.zoom; c.stroke();
   }
-  isoBox(c, 419, 69, 72, 62, 70, PAL.metal);
-  poly(c, [proj(421, 131, 30), proj(489, 131, 30), proj(489, 131, 32), proj(421, 131, 32)], '#6d6a76');
-  poly(c, [proj(432, 131, 18), proj(442, 131, 18), proj(442, 131, 26), proj(432, 131, 26)], '#ffc94a');
+  rrw(c, 416, 66, 78, 68, 10, 'rgba(0,0,0,.20)');
+  rrw(c, 419, 69, 72, 62, 6, PAL.metal);
+  // Handle and indicator light: previously a poly(proj(x,y,z0), proj(x,y,z1))
+  // pair whose z args differed but whose x/y didn't -- proj() ignores wz now
+  // that the iso camera is gone (see proj()'s own comment above), so both
+  // were degenerate zero-area quads that painted nothing. isoFlat() is the
+  // straightforward flat-patch replacement, same as every other appliance-
+  // front detail in this room.
+  isoFlat(c, 480, 104, 4, 22, '#6d6a76');   // door handle
+  isoFlat(c, 428, 76, 8, 6, '#ffc94a');     // indicator light
+  // Freezer/fridge-body seam -- a subtle horizontal reveal splitting the
+  // casing into an upper freezer and lower fridge section, sharp like the
+  // appliance's other flat-surface details (handle, light) rather than
+  // rounded like the casing itself.
+  isoFlat(c, 422, 94, 66, 2, shade(PAL.metal, 0.72));
   chair(c, 103, 157); chair(c, 205, 157);
   table(c, 72, 200, 198, 62);
   chair(c, 103, 277); chair(c, 205, 277);
@@ -303,68 +362,99 @@ function drawKitchen(c) {
 
 function chair(c, px, py) {
   const north = py < 200;
-  const backY = north ? py - 7 : py + 31;
+  // Both gaps (seat edge to back rail) must match at 3px -- north's -7 giving
+  // a clean 3px gap was already right; south's +31 undercut the seat's own
+  // bottom edge (py+33) by 2px, so the back rail visibly touched/overlapped
+  // the cushion instead of sitting behind it. +36 mirrors north's 3px gap.
+  const backY = north ? py - 7 : py + 36;
   const back = () => {
-    isoBox(c, px + 2, backY, 30, 5, 40, '#5c4530');
+    rrw(c, px + 2, backY, 30, 5, 2, '#5c4530');
   };
   const legs = () => {
     for (const [lx, ly] of [[px + 3, py + 3], [px + 27, py + 3], [px + 3, py + 27], [px + 27, py + 27]])
-      isoBox(c, lx, ly, 4, 4, 15, '#4a3728');
+      rrw(c, lx, ly, 4, 4, 1, '#4a3728');
   };
+  rrw(c, px - 2, py + 3, 36, 36, 8, 'rgba(0,0,0,.18)');
   if (north) back();
   legs();
-  isoBox(c, px + 1, py + 1, 32, 32, 17, '#7a5c3e');
-  isoFlat(c, px + 4, py + 4, 26, 26, 'rgba(255,255,255,.05)', 17);
+  rrw(c, px + 1, py + 1, 32, 32, 6, '#7a5c3e');
+  rrw(c, px + 4, py + 4, 26, 26, 5, 'rgba(255,255,255,.05)');
   if (!north) back();
 }
 
 function table(c, x, y, w, h) {
+  rrw(c, x - 3, y + 4, w + 6, h + 6, 10, 'rgba(0,0,0,.20)');
   for (const [lx, ly] of [[x + 6, y + 6], [x + w - 12, y + 6], [x + 6, y + h - 12], [x + w - 12, y + h - 12]])
-    isoBox(c, lx, ly, 6, 6, 24, '#4e3826');
-  isoBox(c, x, y, w, h, 26, PAL.wood);
+    rrw(c, lx, ly, 6, 6, 2, '#4e3826');
+  rrw(c, x, y, w, h, 8, PAL.wood);
   for (const gy of [y + 16, y + 31, y + 46]) isoFlat(c, x + 8, gy, w - 16, 1, PAL.woodDk, 26);
 }
 
 function drawBedroom(c) {
-  isoFlat(c, 760, 230, 66, 90, 'rgba(160,110,140,.13)');
+  // Bedside rug: rounded like the living room's rug -- a placed object ON
+  // the floor, not the floor itself -- rather than the sharp isoFlat patch
+  // it was (sharp is reserved for architecture and flat screen surfaces).
+  rrw(c, 760, 230, 66, 90, 10, 'rgba(160,110,140,.13)');
   for (const cx of [532, 566, 600]) {
-    isoBox(c, cx - 10, 84, 20, 20, 16, '#8a5a3e');
+    rrw(c, cx - 11, 82, 22, 22, 6, 'rgba(0,0,0,.16)');
+    rrw(c, cx - 10, 84, 20, 20, 5, '#8a5a3e');
+    // Same class of bug as rr(): a raw offset/radius added AFTER proj() is
+    // screen pixels, not world units, so it doesn't track cam.zoom the way
+    // proj()'s own output does -- the leaf cluster stayed pinned to the pot's
+    // (correctly projected) position but wouldn't grow/shrink with it,
+    // becoming visibly mismatched in scale from its own pot on zoom. z is
+    // the fix throughout: every offset and radius below scaled by it.
     const [px, py] = proj(cx, 94, 16);
+    const z = cam.zoom;
     for (let i = 0; i < 6; i++) {
       const a = i * Math.PI / 3;
       c.beginPath();
-      c.ellipse(px + Math.cos(a) * 8, py - 10 + Math.sin(a) * 6, 8, 6, a, 0, 7);
+      c.ellipse(px + Math.cos(a) * 8 * z, py - 10 * z + Math.sin(a) * 6 * z, 8 * z, 6 * z, a, 0, 7);
       c.fillStyle = i % 2 ? '#3f7d4e' : PAL.leaf; c.fill();
     }
-    c.beginPath(); c.ellipse(px, py - 12, 7, 6, 0, 0, 7);
+    c.beginPath(); c.ellipse(px, py - 12 * z, 7 * z, 6 * z, 0, 0, 7);
     c.fillStyle = '#58a86a'; c.fill();
   }
-  isoBox(c, 620, 69, 88, 44, 34, PAL.wood);
+  rrw(c, 617, 66, 94, 50, 8, 'rgba(0,0,0,.20)');
+  rrw(c, 620, 69, 88, 44, 6, PAL.wood);
   [[8, 73], [18, 87], [28, 101]].forEach(([dz, py]) =>
     vface(c, 624, 113, 704, 113, dz, dz + 8, shade(PAL.woodDk, 0.66), [624, py, 80, 11]));
-  isoBox(c, 740, 69, 72, 44, 26, PAL.wood);
-  isoBox(c, 752, 76, 20, 14, 6, PAL.carcass);
-  isoBox(c, 754, 74, 16, 5, 9, '#d5484a');
-  isoFlat(c, 786, 76, 18, 14, '#e8e3ef');
-  isoBox(c, 838, 120, 74, 48, 22, PAL.wood);
+  rrw(c, 737, 66, 78, 50, 8, 'rgba(0,0,0,.20)');
+  rrw(c, 740, 69, 72, 44, 6, PAL.wood);
+  rrw(c, 752, 76, 20, 14, 4, PAL.carcass);
+  rrw(c, 754, 74, 16, 5, 2, '#d5484a');
+  rrw(c, 786, 76, 18, 14, 4, '#e8e3ef');
+  rrw(c, 835, 117, 80, 54, 10, 'rgba(0,0,0,.20)');
+  rrw(c, 838, 120, 74, 48, 8, PAL.wood);
+  // Same zoom fix as the plant leaves just above -- lampshade + glow are
+  // drawn as raw offsets from a projected point, so they need cam.zoom too.
   const [lx, ly] = proj(875, 144, 22);
-  c.beginPath(); c.moveTo(lx - 13, ly - 6); c.lineTo(lx + 13, ly - 6);
-  c.lineTo(lx + 9, ly - 22); c.lineTo(lx - 9, ly - 22); c.closePath();
+  const lz = cam.zoom;
+  c.beginPath(); c.moveTo(lx - 13 * lz, ly - 6 * lz); c.lineTo(lx + 13 * lz, ly - 6 * lz);
+  c.lineTo(lx + 9 * lz, ly - 22 * lz); c.lineTo(lx - 9 * lz, ly - 22 * lz); c.closePath();
   c.globalAlpha = .85; c.fillStyle = '#ffd98a'; c.fill(); c.globalAlpha = 1;
-  c.beginPath(); c.ellipse(lx, ly + 6, 34, 14, 0, 0, 7);
+  c.beginPath(); c.ellipse(lx, ly + 6 * lz, 34 * lz, 14 * lz, 0, 0, 7);
   c.fillStyle = 'rgba(255,217,138,.08)'; c.fill();
+  // Same rr() fix as the couch: a bed is the plushest thing in the room, so
+  // it's the worst-served by isoBox's now-flat, sharp-cornered rects. Pillow
+  // radius is deliberately exactly half their own height (14 of 28) -- that's
+  // rr()'s stadium/pill case, not a clamp-to-avoid-distortion compromise, and
+  // it's the one shape here that actually needs the full curve to read as a
+  // pillow rather than a rounded plank. Grounding shadow matches the couch's,
+  // drawn before the legs so it sits under them, not as a haze over the top.
+  rrw(c, 822, 173, 112, 176, 14, 'rgba(0,0,0,.22)');
   for (const [lx2, ly2] of [[829, 174], [921, 174], [829, 330], [921, 330]])
-    isoBox(c, lx2, ly2, 6, 6, 10, '#3f2e1e');
-  isoBox(c, 825, 170, 106, 170, 14, PAL.woodDk);
-  isoBox(c, 825, 320, 106, 20, 30, '#4a3728');
+    rrw(c, lx2, ly2, 6, 6, 1, '#3f2e1e');
+  rrw(c, 825, 170, 106, 170, 10, PAL.woodDk);
+  rrw(c, 825, 320, 106, 20, 6, '#4a3728');
   isoFlat(c, 829, 176, 98, 158, PAL.linen, 14);
-  isoBox(c, 831, 180, 46, 28, 20, '#f3ecf7');
-  isoBox(c, 879, 180, 46, 28, 20, '#f3ecf7');
-  isoBox(c, 829, 214, 98, 106, 18, PAL.duvet);
+  rrw(c, 831, 180, 46, 28, 14, '#f3ecf7');
+  rrw(c, 879, 180, 46, 28, 14, '#f3ecf7');
+  rrw(c, 829, 214, 98, 106, 12, PAL.duvet);
   isoFlat(c, 829, 214, 98, 4, 'rgba(255,255,255,.16)', 18);
   for (const qy of [246, 278, 310]) isoFlat(c, 829, qy, 98, 1.5, 'rgba(0,0,0,.15)', 18);
   isoFlat(c, 878, 214, 1.5, 106, 'rgba(0,0,0,.10)', 18);
-  isoBox(c, 825, 170, 106, 8, 46, '#4a3728');
+  rrw(c, 825, 170, 106, 8, 4, '#4a3728');
   // Wall TV: mounted in the corner above the nightstand (x838-912,y120-168),
   // NOT beside the bed itself -- it used to sit at y210-300, which is the
   // bed frame's own y-range (170-340), so the "screen" rendered as a dark
@@ -375,9 +465,13 @@ function drawBedroom(c) {
 }
 
 function drawLiving(c) {
-  isoFlat(c, 250, 375, 410, 245, 'rgba(122,90,110,.22)');
-  isoFlat(c, 276, 401, 358, 193, 'rgba(255,255,255,.03)');
-  isoBox(c, 84, 359, 132, 30, 62, '#4a3a2b');
+  // Rug rounded (it's a placed object on the floor, not the floor itself);
+  // the room floor wash it sits on stays a sharp rect on purpose -- a floor
+  // has no edges of its own to round.
+  rrw(c, 250, 375, 410, 245, 14, 'rgba(122,90,110,.22)');
+  rrw(c, 276, 401, 358, 193, 12, 'rgba(255,255,255,.03)');
+  rrw(c, 81, 364, 138, 36, 8, 'rgba(0,0,0,.18)');
+  rrw(c, 84, 359, 132, 30, 5, '#4a3a2b');
   c.globalAlpha = .8;
   for (const [zTop, n] of [[54, 0], [36, 1], [18, 2]]) {
     let x = 88;
@@ -388,41 +482,77 @@ function drawLiving(c) {
     }
   }
   c.globalAlpha = 1;
-  isoBox(c, 784, 381, 112, 12, 14, PAL.carcass);
+  // Grounding shadow under the TV console, same free-standing-furniture
+  // convention as the bookshelf against this same divider (and the couches,
+  // table, chairs): offset south, drawn first so the console paints over it.
+  rrw(c, 781, 384, 118, 14, 5, 'rgba(0,0,0,.18)');
+  rrw(c, 784, 381, 112, 12, 4, PAL.carcass);
   vface(c, 796, 387, 884, 387, 14, 44, PAL.screen, [796, 359, 88, 24]);
-  couch(c, 665, 430, 70, 160, 'west', [450, 520]);
+  // Seat y's must match theme.json's couch2 slots (470, 540) -- source of
+  // truth for where a sim actually sits. Frame is centered on THEIR midpoint
+  // (505), not an arbitrary round number: with 67-tall cushions (matching the
+  // 3-seater's 3px cushion gap), the cushion pair spans 436.5-573.5, centered
+  // at 505. A frame centered at 510 (the old y=430,h=160) put that span 5
+  // units off its own middle -- enough that the top cushion overflowed into
+  // the arm-cap zone and got visibly clipped, while the bottom cushion sat
+  // short of its cap with slack below it. y=416,h=178 centers the frame on
+  // 505 instead, with equal ~8px margin from each cushion to its cap.
+  couch(c, 665, 416, 70, 178, 'west', [470, 540]);
   couch(c, 745, 548, 186, 70, 'south', [785, 838, 891]);
 }
 
+// Rounded, not boxy: isoBox/isoFlat are flat-fill rects now that the iso
+// camera (and the z/depth they used to imply) is gone, so a whole couch drawn
+// from them reads as stacked cardboard. rr() (declared in scope, unused until
+// now) gives every panel real corner radius -- frame softer than legs, seat
+// cushions softer than the frame, matching the "amplitude, not detail count"
+// doctrine the sims themselves already use for a plush read. Every radius
+// below is sized to at most half the panel's shorter side (rr()'s arcTo path
+// has no built-in clamp -- an oversized r self-intersects instead of capping).
 function couch(c, x, y, w, h, back, seats) {
   const southBack = back === 'south';
   const drawBack = () => {
     if (southBack) {
-      isoBox(c, x, y + h - 14, w, 14, 40, PAL.fabricDk);
-      for (const cx of seats) isoBox(c, cx - 24, y + h - 12, 48, 6, 38, shade(PAL.fabric, 1.05));
+      rrw(c, x, y + h - 14, w, 14, 6, PAL.fabricDk);
+      for (const cx of seats) rrw(c, cx - 24, y + h - 12, 48, 6, 3, shade(PAL.fabric, 1.05));
     } else {
-      isoBox(c, x, y, 14, h, 40, PAL.fabricDk);
-      for (const cy of seats) isoBox(c, x + 2, cy - 22, 6, 44, 38, shade(PAL.fabric, 1.05));
+      rrw(c, x, y, 14, h, 6, PAL.fabricDk);
+      for (const cy of seats) rrw(c, x + 2, cy - 22, 6, 44, 3, shade(PAL.fabric, 1.05));
     }
   };
+  // Soft ground shadow, offset south (down-screen) same as the sims' own
+  // .shadow ellipse convention -- the couch reads as sitting on the floor
+  // instead of a colour patch floating over it.
+  rrw(c, x - 3, y + 3, w + 6, h + 6, 16, 'rgba(0,0,0,.24)');
+
   for (const [lx, ly] of [[x + 4, y + 4], [x + w - 10, y + 4], [x + 4, y + h - 10], [x + w - 10, y + h - 10]])
-    isoBox(c, lx, ly, 6, 6, 8, '#2f2739');
-  if (!southBack) drawBack();
-  isoBox(c, x, y, w, h, 18, PAL.fabric);
+    rrw(c, lx, ly, 6, 6, 2, '#2f2739');
+  rrw(c, x, y, w, h, 14, PAL.fabric);
+  // South's 3 seats are 53px apart with 50-tall cushions -- a 3px gap. West's
+  // 2 seats (theme.json's actual sit positions, 470/540) are 70px apart, so
+  // matching that same 3px gap takes a taller 67px cushion, not 50 -- the
+  // gap is a function of (seat pitch - cushion size), and seat pitch isn't
+  // something this function is free to change.
   for (const cc of seats) {
-    if (southBack) { isoBox(c, cc - 25, y + 6, 50, h - 24, 24, shade(PAL.fabric, 1.12));
-                     isoFlat(c, cc - 22, y + 9, 44, h - 30, 'rgba(255,255,255,.06)', 24); }
-    else           { isoBox(c, x + 18, cc - 25, w - 24, 50, 24, shade(PAL.fabric, 1.12));
-                     isoFlat(c, x + 21, cc - 22, w - 30, 44, 'rgba(255,255,255,.06)', 24); }
+    if (southBack) { rrw(c, cc - 25, y + 6, 50, h - 24, 16, shade(PAL.fabric, 1.12));
+                     rrw(c, cc - 22, y + 9, 44, h - 30, 12, 'rgba(255,255,255,.06)'); }
+    else           { rrw(c, x + 18, cc - 33.5, w - 24, 67, 16, shade(PAL.fabric, 1.12));
+                     rrw(c, x + 21, cc - 30.5, w - 30, 61, 12, 'rgba(255,255,255,.06)'); }
   }
   if (southBack) {
-    isoBox(c, x, y, 14, h - 12, 30, PAL.fabricDk);
-    isoBox(c, x + w - 14, y, 14, h - 12, 30, PAL.fabricDk);
+    rrw(c, x, y, 14, h - 12, 6, PAL.fabricDk);
+    rrw(c, x + w - 14, y, 14, h - 12, 6, PAL.fabricDk);
   } else {
-    isoBox(c, x + 12, y, w - 12, 12, 30, PAL.fabricDk);
-    isoBox(c, x + 12, y + h - 12, w - 12, 12, 30, PAL.fabricDk);
+    rrw(c, x + 12, y, w - 12, 12, 6, PAL.fabricDk);
+    rrw(c, x + 12, y + h - 12, w - 12, 12, 6, PAL.fabricDk);
   }
-  if (southBack) drawBack();
+  // drawBack() must run LAST, after the frame fill -- the frame is a full
+  // w×h rect that includes the same edge strip the back rail occupies, so
+  // calling drawBack() before it (as this used to for the west-style couch
+  // specifically; south already ran it last) got the rail painted over
+  // completely. Unconditional now: both styles draw their back the same way,
+  // at the end.
+  drawBack();
 }
 
 function drawOutside(c) {
@@ -434,17 +564,39 @@ function drawOutside(c) {
 }
 
 function drawTrees(c) {
+  // Same zoom-scaling fix as the plant leaves and lampshade: canopy offsets
+  // and radii are computed from a projected point but weren't scaled by
+  // cam.zoom, so the canopy stayed pinned to the (correctly projected) trunk
+  // but wouldn't grow/shrink with it.
   for (const [tx, ty, r] of [[140, 690, 26], [860, 690, 26], [300, 700, 20], [700, 700, 20]]) {
-    isoBox(c, tx - 2.5, ty, 5, 5, r * 0.7, '#4a3524');
+    // Grounding shadow, same +y offset convention as the sims' own .shadow
+    // ellipse and the furniture shadows (couch, table, chair) -- drawn first
+    // so the trunk/canopy paint over its top edge, not the other way round.
+    // fxArc() already projects and scales by cam.zoom itself, so no manual
+    // z math is needed here the way the canopy below still needs it.
+    fxArc(c, tx, ty + 4, 0, r * 0.85, r * 0.36, 'rgba(0,0,0,.20)', 'fill');
+    // Trunk footprint: the one remaining unrounded shape from the furniture
+    // sweep -- small radius, it's a thin rigid trunk, not plush.
+    rrw(c, tx - 2.5, ty, 5, 5, 1.5, '#4a3524');
     const [cx, cy] = proj(tx, ty + 2, r * 0.7);
-    circ(c, cx, cy - r * 0.3, r * 0.62, '#2f5c38');
-    circ(c, cx - r * 0.34, cy + r * 0.05, r * 0.44, '#356b40');
-    circ(c, cx + r * 0.34, cy, r * 0.40, '#274d2f');
+    const z = cam.zoom;
+    circ(c, cx, cy - r * 0.3 * z, r * 0.62 * z, '#2f5c38');
+    circ(c, cx - r * 0.34 * z, cy + r * 0.05 * z, r * 0.44 * z, '#356b40');
+    circ(c, cx + r * 0.34 * z, cy, r * 0.40 * z, '#274d2f');
   }
 }
 
 function drawHouse(c) {
   isoFlat(c, HOUSE.x, HOUSE.y, DIV_X - HOUSE.x, DIV_Y - HOUSE.y, '#5c5763');
+  // Kitchen floor tile grid: thin, low-contrast lines (not a bold
+  // checkerboard) so the kitchen gets the same light material read every
+  // other surface in the house already has (table grain, cushion seams,
+  // fabric ribbing). Drawn before drawKitchen()'s counters/table/chairs so
+  // they paint over it, same draw-order rule as everything else here.
+  c.globalAlpha = .06;
+  for (let gx = HOUSE.x + 40; gx < DIV_X; gx += 40) isoFlat(c, gx, HOUSE.y, 1, DIV_Y - HOUSE.y, '#14131a');
+  for (let gy = HOUSE.y + 40; gy < DIV_Y; gy += 40) isoFlat(c, HOUSE.x, gy, DIV_X - HOUSE.x, 1, '#14131a');
+  c.globalAlpha = 1;
   isoFlat(c, DIV_X, HOUSE.y, HOUSE.x + HOUSE.w - DIV_X, DIV_Y - HOUSE.y, '#4d3826');
   isoFlat(c, HOUSE.x, DIV_Y, HOUSE.w, HOUSE.y + HOUSE.h - DIV_Y, '#4a3524');
 
@@ -467,6 +619,32 @@ function drawHouse(c) {
   drawLiving(c);
 
   isoFlat(c, FRONT.x - 30, FRONT.y - 4, 60, 8, '#8f5a3c');
+  // Interior doorway sills, matching the front door's threshold so all three
+  // doorways read consistently instead of the two interior ones being bare
+  // gaps in the wall. Same straddle-the-wall-line convention as the front
+  // step above (centred in the WALL-thick gap, same brown).
+  isoFlat(c, K_DOOR.x - 30, DIV_Y + (WALL - 8) / 2, 60, 8, '#8f5a3c');
+  isoFlat(c, S_DOOR.x - 30, DIV_Y + (WALL - 8) / 2, 60, 8, '#8f5a3c');
+
+  // Exterior windows on the front (south, road-facing) side. There's no
+  // solid south wall drawn at all -- this dollhouse only renders its north
+  // and west walls (wall() above) so the top-down camera can see inside --
+  // so these follow the same convention as the front door step just above: a
+  // small detail straddling the FRONT.y boundary line rather than sitting
+  // inside a wall rect that doesn't exist. Restrained on purpose: 2 windows,
+  // clear of the door (x470-530) and the house corners, with a soft warm
+  // glow matching the gold/amber lamp and firelight accents used elsewhere.
+  const frontWindow = wx => {
+    const [gx, gy] = proj(wx, FRONT.y);
+    const z = cam.zoom;
+    c.beginPath(); c.ellipse(gx, gy, 22 * z, 14 * z, 0, 0, 7);
+    c.fillStyle = 'rgba(255,201,74,.10)'; c.fill();
+    isoFlat(c, wx - 10, FRONT.y - 4, 20, 8, '#5d4a38');
+    isoFlat(c, wx - 7, FRONT.y - 2, 14, 4, PAL.gold);
+    isoFlat(c, wx - 7, FRONT.y - 2, 14, 1.2, 'rgba(255,255,255,.3)');
+  };
+  frontWindow(220);
+  frontWindow(780);
 }
 
 function drawBackground(ctx) {
@@ -525,7 +703,7 @@ const FX = {
       }
       const [px, py] = proj(cx, 94, 16);
       c.globalAlpha = .35;
-      c.beginPath(); c.ellipse(px, py - 12, 9.5, 7.8, 0, 0, Math.PI * 2);
+      c.beginPath(); c.ellipse(px, py - 12 * cam.zoom, 9.5 * cam.zoom, 7.8 * cam.zoom, 0, 0, Math.PI * 2);
       c.fillStyle = '#7fc98f'; c.fill();
       c.globalAlpha = 1;
     }
@@ -538,7 +716,7 @@ const FX = {
   },
   call: (c, t, n) => {
     if (n <= 0) return;
-    isoBox(c, 754, 70, 16, 5, 9, '#d5484a');
+    rrw(c, 754, 70, 16, 5, 2, '#d5484a');
     for (let i = 0; i < 2; i++) {
       const phase = (t * 0.7 + i * 0.5) % 1, r = 8 + 10 * phase;
       fxArc(c, 762, 83, 9, r, r, rgba(PAL.gold, .5 * (1 - phase)), 'stroke', 1.6);
@@ -565,8 +743,16 @@ const FX = {
   },
   rinse: (c, t) => {
     isoFlat(c, 143, 79, 2, 10, rgba(PAL.water, .3 + .3 * Math.sin(t * 6)), 30);
-    for (let i = 0; i < 2; i++)
-      fxArc(c, 144, 95, 6 + 2 * Math.sin(t * 5 + i * 1.6), 2, rgba(PAL.water, .25), 'fill');
+    // Drain ripples. This call was one argument short of fxArc's signature
+    // (c, wx, wy, wz, rx, ry, style, mode, ...): the oscillating radius
+    // landed in the ignored wz slot, the colour string landed in ry (NaN
+    // once multiplied by cam.zoom, which canvas ellipse() silently drops),
+    // and 'fill' landed in style -- so the ripples never painted at all.
+    // Same invisible-no-op family as the degenerate faucet/fridge polys.
+    for (let i = 0; i < 2; i++) {
+      const rp = Math.sin(t * 5 + i * 1.6);
+      fxArc(c, 144, 95, 30, 4 + 2 * rp, 2.6 + 1.3 * rp, rgba(PAL.water, .25), 'fill');
+    }
   },
 };
 

@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>your house</title>
+<title>Cupola</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="sims.css">
 <style>
   :root {
@@ -1279,7 +1280,7 @@ function counts() {
   document.getElementById('n-block').textContent = c.blocked;
   document.getElementById('n-idle').textContent = c.idle;
   document.getElementById('n-stale').textContent = c.stale;
-  document.title = c.blocked ? `(${c.blocked}) your house` : 'your house';
+  document.title = c.blocked ? `(${c.blocked}) Cupola` : 'Cupola';
 }
 function connect() {
   const es = new EventSource('/events');

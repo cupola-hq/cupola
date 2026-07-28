@@ -35,22 +35,26 @@ if (!document.getElementById('car-theme-style')) {
 .car .chassis { transform-origin: 0px 0px;
   transform: translateY(calc(var(--heft, 0) * 2px)) scaleY(calc(1 - var(--heft, 0) * 0.12)); }
 
-/* ---- lot fix: a parked, nose-in car (.car.parked, set by index.html's
-   updateSim alongside the fixed rotor rotate() -- see parkedNoseIn there)
-   shrinks to fit its stall. .hull is .rotor's dedicated child for this
-   file's own styling (see buildActor's comment: .rotor itself is
+/* ---- lot fix (DORMANT): these rules target '.car.parked', but
+   index.html's updateSim hardwires parkedNoseIn = false (its own comment
+   there explains why), so '.parked''s fixed nose-in rotor rotate() never
+   fires and this class is never actually applied -- the lot's stalls are
+   drawn HORIZONTAL and cars park mirrored, not rotated portrait/nose-up
+   (see drawLot()'s header comment below). Left in place rather than
+   deleted in case nose-in parking comes back; if it does, this still
+   shrinks the hull to fit its stall. .hull is .rotor's dedicated child for
+   this file's own styling (see buildActor's comment: .rotor itself is
    host-written every frame, a CSS transform there would replace its
    rotate() outright). One scale knob, not four redrawn smaller shells. */
 .car.parked .hull { transform: scale(.46); transform-origin: 0px 0px; }
 
 /* Ground shadow is a sibling of .body/.rotor -- built that way so it never
-   mirrors or rotates with it either, and needs its own correction here once
-   parked: the same shrink as .hull, plus a 90deg turn so the wide
-   "landscape" ellipse drawn to match a horizontal car reads as the narrower
-   portrait patch a nose-in car actually casts. Left alone (full size,
-   unrotated) this was the biggest single reason the lot read messy -- a
-   large grey blob sized for the OLD sideways car sitting under the new,
-   smaller, turned one. */
+   mirrors or rotates with it either, and would need its own correction here
+   if nose-in parking were ever live: the same shrink as .hull, plus a 90deg
+   turn so the wide "landscape" ellipse drawn to match a horizontal car reads
+   as the narrower portrait patch a nose-in car would cast. Also dormant --
+   see the .car.parked .hull comment above; '.parked' is never applied under
+   the current horizontal-stall lot. */
 .car.parked .shadow { transform: rotate(90deg) scale(.62); transform-origin: center; }
 
 .car .moto, .car .sedan, .car .suv, .car .limo { display: none; }
@@ -84,7 +88,8 @@ if (!document.getElementById('car-theme-style')) {
 .car .limo-ornament { fill: #e8c351; }
 .car .tophat-brim { fill: #17141d; }
 .car .tophat-crown { fill: #17141d; }
-.car .sparkle { fill: #ffe9a3; opacity: 0; animation: car-twinkle 1.8s ease-in-out infinite; }
+.car .sparkle { fill: #ffe9a3; opacity: 0; animation: car-twinkle 1.8s ease-in-out infinite;
+  transform-box: fill-box; transform-origin: 50% 50%; }
 .car .sparkle:nth-of-type(2) { animation-delay: .6s; }
 .car .sparkle:nth-of-type(3) { animation-delay: 1.2s; }
 @keyframes car-twinkle { 0%,100% { opacity: 0; transform: scale(.4) } 50% { opacity: 1; transform: scale(1) } }
@@ -101,6 +106,16 @@ if (!document.getElementById('car-theme-style')) {
 .car[data-heft="4"] .exhaust { opacity: 1; }
 .car .puff { fill: rgba(180,178,188,.5); animation: car-puff 1.4s ease-out infinite; transform-origin: 0 0; }
 .car[data-heft="3"] .puff, .car[data-heft="4"] .puff { animation-duration: .9s; fill: rgba(90,86,98,.65); }
+/* Per-tier mount: the sedan/plain baseline is the group's own translate()
+   ATTRIBUTE (-40,4); a stylesheet transform rule always outranks a plain
+   presentation attribute (same mechanism as the delegate-mount fix above),
+   so these two overrides fully replace it rather than add to it -- sonnet
+   and opus stay on the attribute's -40, close enough to their own hull
+   tails (-31/-37) not to need a rule of their own. Haiku/fable's hull tails
+   sit at -24/-45, so the pipe moves with them, ~9px behind the tail like
+   the baseline does for the sedan. */
+.car.tier-haiku .exhaust { transform: translate(-33px,4px); }
+.car.tier-fable .exhaust { transform: translate(-54px,4px); }
 .car .puff:nth-of-type(2) { animation-delay: .45s; }
 .car .puff:nth-of-type(3) { animation-delay: .9s; }
 @keyframes car-puff {
@@ -119,6 +134,14 @@ if (!document.getElementById('car-theme-style')) {
 .car.idle .idlelamp { display: block; }
 .car .lamp-cone { fill: #ffefb8; opacity: .32; }
 .car .lamp-core { fill: #ffd97a; opacity: .95; }
+/* Per-tier mount: idlelamp/headlight are both drawn at the sedan's nose
+   (x42), so on every other vehicle class they float off the actual nose
+   (or, for the limo, sit inside the hull) -- shift them per tier to track
+   each class's own nose position. Sedan/plain is the baseline. */
+.car .idlelamp, .car .headlight { transform: translateX(-9px); }
+.car.tier-haiku .idlelamp, .car.tier-haiku .headlight { transform: translateX(-18px); }
+.car.tier-opus .idlelamp, .car.tier-opus .headlight { transform: translateX(-3px); }
+.car.tier-fable .idlelamp, .car.tier-fable .headlight { transform: translateX(2px); }
 
 /* ---- activity props: what the session is DOING, not which car it is ---- */
 .car .propslot { transform: translate(-2px,0px); }
@@ -161,13 +184,6 @@ if (!document.getElementById('car-theme-style')) {
 .car .triangle-fill { fill: #fff8e7; }
 .car .triangle-edge { fill: none; stroke: #e8442a; stroke-width: 2.4; stroke-linejoin: round; }
 .car .triangle-mark { fill: #241f2b; }
-
-@media (prefers-reduced-motion: reduce) {
-  .car .halo, .car .hazlamp { animation: none !important; opacity: 1; }
-  .car .hazring { display: inline; }
-  .car .puff, .car .map-fold, .car .spark, .car .mist,
-  .car .lightbar-l, .car .lightbar-r, .car .sparkle { animation: none !important; }
-}
 
 /* ---- stale: same lot as idle, just dark -----------------------------------
    Keyed directly on the STATE class (not a place-supplied pose/'sitting',
@@ -215,9 +231,30 @@ if (!document.getElementById('car-theme-style')) {
 .car.bye .headlight { animation: car-flash .5s steps(1,end) 4; }
 @keyframes car-flash { 0%,49% { opacity: .95 } 50%,100% { opacity: 0 } }
 
+/* ---- reduced motion: two different fixes for two different animation
+   shapes, not one blanket rule -----------------------------------------------
+   Continuous animations (exhaust puffs, map flap, spark/mist props, sparkle,
+   zzz drift, bye bubble pop) just need to stop moving -- collapsing their
+   duration to near-zero does that with no per-animation list to maintain, so
+   a new one added later is covered automatically.
+   The five STEPPED animations (halo, hazlamp, both lightbars, the bye
+   headlight flash) are a different shape: a steps()/step-start blink at
+   near-zero duration doesn't stop, it strobes -- opacity still flips between
+   two values every animation cycle, just too fast to consciously perceive.
+   That's the opposite of what reduced-motion is for, so these five get a
+   hard animation:none instead of a duration squeeze. halo/hazlamp keep
+   opacity:1 !important so blocked's signal stays visible (the blink was
+   never the only carrier -- .hazring, a static ring, exists for exactly
+   this fallback); the two lightbars and the headlight have no static
+   equivalent, so animation:none simply leaves them at their base (unlit)
+   opacity. */
 @media (prefers-reduced-motion: reduce) {
-  .car * , .car { animation-duration: .001ms !important; }
-  .car .halo, .car .hazlamp { animation: none !important; opacity: 1 !important; }
+  .car *, .car { animation-duration: .001ms !important; }
+  .car .halo, .car .hazlamp,
+  .car .lightbar-l, .car .lightbar-r,
+  .car .headlight { animation: none !important; }
+  .car .halo, .car .hazlamp { opacity: 1 !important; }
+  .car .hazring { display: inline; }
 }
 `;
   document.head.appendChild(style);
@@ -240,7 +277,7 @@ const ASPHALT = '#302b39', ASPHALT_HI = '#3c3547', INFIELD = '#2c4a2e',
       // ---- lot median trees -- a vivid, saturated green so the canopies
       // read as planted trees against both the pale concrete pad and the
       // median's own dull planter fill, not just a darker patch of it.
-      TREE_CANOPY_DK = '#1f5e34', TREE_CANOPY = '#2f7a44', TREE_TRUNK = '#4a3624';
+      TREE_CANOPY_DK = '#256b3c', TREE_CANOPY = '#3c9455', TREE_TRUNK = '#4a3624';
 
 // ---- activity props (mounted per-tier via CSS .propslot transform,
 // except `delegate` which is always towed behind regardless of vehicle
@@ -284,16 +321,19 @@ const PROPS = {
     g.appendChild(el('rect', { class: 'lightbar-r', x: .5, y: -2, width: 6.5, height: 3, rx: 1 }));
   }),
   delegate: () => mkProp('delegate', g => {
-    g.appendChild(el('line', { class: 'hitch', x1: 8, y1: 0, x2: 22, y2: 0 }));
-    g.appendChild(el('rect', { class: 'trailer-body', x: 22, y: -6, width: 16, height: 12, rx: 2 }));
-    g.appendChild(el('circle', { class: 'trailer-wheel', cx: 26, cy: 7, r: 2.2 }));
-    g.appendChild(el('circle', { class: 'trailer-wheel', cx: 34, cy: 7, r: 2.2 }));
+    // Nose is +x local, "behind" is -x -- towed trailer geometry has to lay
+    // out toward -x or it draws into the nose side instead of behind the car.
+    g.appendChild(el('line', { class: 'hitch', x1: -8, y1: 0, x2: -22, y2: 0 }));
+    g.appendChild(el('rect', { class: 'trailer-body', x: -38, y: -6, width: 16, height: 12, rx: 2 }));
+    g.appendChild(el('circle', { class: 'trailer-wheel', cx: -34, cy: 7, r: 2.2 }));
+    g.appendChild(el('circle', { class: 'trailer-wheel', cx: -26, cy: 7, r: 2.2 }));
   }),
 };
 // `delegate` ignores the tier-based propslot roof mount (a trailer is towed,
 // not carried) -- positioned with its own translate so it always sits behind
-// the car regardless of vehicle class.
-const DELEGATE_MOUNT = { haiku: -14, sonnet: -28, opus: -34, fable: -42, plain: -28 };
+// the car regardless of vehicle class. Rear-bumper attach point per tier,
+// given hull tails at -24/-31/-37/-45 (moto/sedan/suv/limo).
+const DELEGATE_MOUNT = { haiku: -16, sonnet: -23, opus: -29, fable: -37, plain: -23 };
 
 // ---- the four vehicle classes (THEMES.md §5.2, sized per Fable's
 // silhouette-at-40px pass: aspect ratio + a second discriminator per pair,
@@ -551,7 +591,7 @@ function updateActor(g, sp, s) {
   // offset independent of the tier-based roof mount); everything else rides
   // the propslot, which CSS positions per vehicle class (courier box on a
   // motorcycle, roof otherwise).
-  const activity = (s.state === 'working' && !sp.moving)
+  const activity = (s.state === 'working')
     ? (s.activity || ThemeEngine.activityOf(s)) : null;
   if (sp.prop !== activity) {
     sp.prop = activity;
@@ -561,9 +601,18 @@ function updateActor(g, sp, s) {
     if (activity && PROPS[activity]) {
       if (activity === 'delegate') {
         const off = DELEGATE_MOUNT[t] || -28;
-        slot.setAttribute('transform', `translate(${off},0)`);
+        // Inline style, not setAttribute: the stylesheet's `.propslot`
+        // transform rule (and its per-tier override) outranks a plain
+        // presentation attribute, so setAttribute here was silently
+        // overridden -- same CSS-beats-attribute trap this file's own
+        // comments document for `.rotor`/`.hull`.
+        slot.style.transform = `translate(${off}px,0)`;
+      } else {
+        slot.style.transform = '';
       }
       slot.appendChild(PROPS[activity]());
+    } else {
+      slot.style.transform = '';
     }
   }
 
@@ -598,6 +647,20 @@ function ringPts(cx, cy, w, h, r) {
 function fillWorldPoly(c, pts, fill) {
   poly(c, pts.map(p => proj(p.x, p.y)), fill);
 }
+// Stroke a closed world-space polyline's edge -- used for the loop's
+// paved-edge line (T-4): the ring had no edge definition of its own despite
+// a comment claiming otherwise, just the outer/inner fills butting straight
+// against the grass/infield.
+function strokeWorldPoly(c, pts, stroke, lineWidth) {
+  c.save();
+  c.strokeStyle = stroke;
+  c.lineWidth = lineWidth;
+  c.beginPath();
+  pts.forEach((p, i) => { const [sx, sy] = proj(p.x, p.y); i ? c.lineTo(sx, sy) : c.moveTo(sx, sy); });
+  c.closePath();
+  c.stroke();
+  c.restore();
+}
 
 const CENTER = { x: 120, y: 120, w: 760, h: 440, r: 110 };
 const LANE = 28;
@@ -609,27 +672,46 @@ function drawTrack(c) {
 
   fillWorldPoly(c, outer, ASPHALT);
   fillWorldPoly(c, inner, INFIELD);
+  // Paved edge -- a thin ASPHALT_HI stroke on both boundaries of the ring,
+  // the loop's own edge definition (previously just two fills butting
+  // directly against grass/infield with no line of its own).
+  strokeWorldPoly(c, outer, ASPHALT_HI, 3 * cam.zoom);
+  strokeWorldPoly(c, inner, ASPHALT_HI, 3 * cam.zoom);
 
   // Dashed centerline -- a plain stroked path in screen space over the
   // already-projected points reads fine in both camera modes.
   c.save();
-  c.setLineDash([10, 10]);
+  c.setLineDash([10 * cam.zoom, 10 * cam.zoom]);
   c.strokeStyle = 'rgba(232,227,239,.35)';
-  c.lineWidth = 1.4;
+  c.lineWidth = 1.4 * cam.zoom;
   c.beginPath();
   center.forEach((p, i) => { const [sx, sy] = proj(p.x, p.y); i ? c.lineTo(sx, sy) : c.moveTo(sx, sy); });
   c.closePath();
   c.stroke();
   c.restore();
+}
 
-  // Checkered start/finish strip, south straight, x=500 (where the house's
-  // front door used to be -- arrival reads in the same screen place).
+// Checkered start/finish strip, south straight, x=500 (where the house's
+// front door used to be -- arrival reads in the same screen place). Drawn
+// as its own pass, called AFTER drawRoad() in drawBackground -- drawTrack()
+// used to paint this directly, but drawRoad() paints its access-road mouth
+// over the top ~10px of it, cutting the checkers off. Two columns with
+// offset parity (not one 16px-wide column) so it actually reads as a
+// checkerboard rather than a single striped bar; colours are a real
+// light/dark pair (#e8e3ef / #14121c) that read against ASPHALT (#302b39),
+// not the old #232030 which nearly matched the asphalt it sat on.
+function drawFinishLine(c) {
   const n = 8;
+  const cellH = (LANE * 2) / n;
   for (let i = 0; i < n; i++) {
-    const y = CENTER.y + CENTER.h - LANE + (i * (LANE * 2) / n);
+    const y = CENTER.y + CENTER.h - LANE + i * cellH;
+    const parity = i % 2 === 0;
     fillWorldPoly(c, [
-      { x: 492, y }, { x: 508, y }, { x: 508, y: y + LANE * 2 / n }, { x: 492, y: y + LANE * 2 / n },
-    ], (i % 2 === 0) ? '#e8e3ef' : '#232030');
+      { x: 492, y }, { x: 500, y }, { x: 500, y: y + cellH }, { x: 492, y: y + cellH },
+    ], parity ? '#e8e3ef' : '#14121c');
+    fillWorldPoly(c, [
+      { x: 500, y }, { x: 508, y }, { x: 508, y: y + cellH }, { x: 500, y: y + cellH },
+    ], parity ? '#14121c' : '#e8e3ef');
   }
 }
 
@@ -642,16 +724,16 @@ function drawTrack(c) {
 // idle-only lot to absorb what used to be two zones' worth of occupants
 // (fix #3) -- 20 stalls, 4 rows of 5, comfortably holding a realistic
 // fleet (n=17: zero overlap, see bin/check-theme.js) before any compression.
-// Everything below is axis-aligned isoFlat() rects -- no diagonals -- and
-// every stall is drawn PORTRAIT (its own depth clearly greater than its own
-// width, see drawLot()'s per-stall loop below), matching every car parked
-// in one, which now noses in to match: index.html's updateSim applies a
-// fixed, static rotate() to the car's `.rotor` for any settled idle/stale
-// car (`parkedNoseIn`, world angle PARK_ANGLE_DEG = -90, i.e. nose-up/
-// north), applied the same way the loop's true rotation already was.
-// Axis-aligned rects are still the simplest shape to reason about here
-// (Fable's call) -- getting the ORIENTATION right (portrait stall,
-// portrait car) took a reshape of the paint, not a diagonal. Geometry
+// Everything below is axis-aligned isoFlat() rects -- no diagonals. DORMANT
+// nose-in design, not current behaviour: an earlier pass here drew every
+// stall PORTRAIT to match a nose-in-parked car (index.html's updateSim
+// applying a fixed rotate() to `.rotor` via `parkedNoseIn`, world angle
+// PARK_ANGLE_DEG = -90). index.html now hardwires `parkedNoseIn = false`
+// (its own comment there explains why), so that rotate() never fires --
+// stalls below are drawn HORIZONTAL and cars park mirrored (face=+/-1), not
+// rotated portrait/nose-up; see the per-stall loop in drawLot() below, which
+// is the actual live geometry. Axis-aligned rects are still the simplest
+// shape to reason about here (Fable's call). Geometry
 // matches theme.json's `lot` region/slots exactly: l210 r790 t185 b418,
 // 5px curb inset, two close-packed row-pairs (222/271 and 332/381) split by
 // one wider drive aisle (fix #2's access road feeds this aisle from the
@@ -684,9 +766,10 @@ const MEDIAN_TREES = [215, 282, 350];
 // host-provided (index.html), same convention as every other round ground
 // object here.
 function drawTree(c, x, y) {
-  fxArc(c, x + 1, y + 5, 0, 3, 2, TREE_TRUNK, 'fill');       // trunk, peeking from the canopy's base
-  fxArc(c, x, y, 0, 11, 7, TREE_CANOPY_DK, 'fill');          // canopy under-layer
-  fxArc(c, x - 2.5, y - 2, 0, 8, 5, TREE_CANOPY, 'fill');    // lit offset layer, gives it volume
+  fxArc(c, x + 2, y + 3, 0, 13, 9, 'rgba(0,0,0,.22)', 'fill');  // ground shadow, drawn first
+  fxArc(c, x + 2, y + 8, 0, 3, 2, TREE_TRUNK, 'fill');          // trunk, peeking out from under the canopy
+  fxArc(c, x, y, 0, 14, 10, TREE_CANOPY_DK, 'fill');            // canopy under-layer
+  fxArc(c, x - 2.5, y - 2, 0, 10, 7, TREE_CANOPY, 'fill');      // lit offset layer, gives it volume
 }
 
 function drawMedianTrees(c) {
@@ -707,13 +790,24 @@ function drawLot(c) {
   isoFlat(c, MEDIAN[0], iy, MEDIAN[1] - MEDIAN[0], XAISLE[0] - iy, '#2f4a34'); // planter
   drawMedianTrees(c);
 
+  // East edge planter -- column D's stalls end at x705 but the pad runs to
+  // x785 (80px of dead empty concrete), vs. just a 5px margin on the west
+  // side. Mirrors the median planter onto that edge instead of moving
+  // LOT_COLS/LOT_ROWS (which must stay in sync with theme.json's slot
+  // coordinates).
+  isoFlat(c, 714, iy, 25, XAISLE[0] - iy, '#2f4a34');
+  for (const y of MEDIAN_TREES) drawTree(c, 726.5, y);
+
   // Entrance mouth through the bottom curb, on the access-road centreline.
-  isoFlat(c, 476, LOT.t + LOT.h - 5, 48, 5, LOT_AISLE);
+  // Reaches down to y410 (into the cross-aisle band) rather than stopping at
+  // the curb's inner edge (413), which left a 3px gap of plain pad colour
+  // between the mouth and the cross-aisle.
+  isoFlat(c, 476, 410, 48, 8, LOT_AISLE);
 
   // Aisle centreline dashes -- yellow, never white (white is the racing line).
   for (const [ax0, ax1] of [AISLE1, AISLE2]) {
     const cx = (ax0 + ax1) / 2;
-    for (let y = iy + 6; y < XAISLE[0]; y += 22) isoFlat(c, cx - 1.5, y, 3, 11, LOT_LINE);
+    for (let y = iy + 6; y + 11 <= XAISLE[0]; y += 22) isoFlat(c, cx - 1.5, y, 3, 11, LOT_LINE);
   }
   for (let x = ix + 8; x < LOT.l + LOT.w; x += 26) isoFlat(c, x, (XAISLE[0] + XAISLE[1]) / 2 - 1.5, 12, 3, LOT_LINE);
 
@@ -765,9 +859,9 @@ function drawRoad(c) {
   // Dashed centerline down the strip, same style as the track's -- the paint
   // language that says "this is more tarmac", not lot pavement.
   c.save();
-  c.setLineDash([8, 8]);
+  c.setLineDash([8 * cam.zoom, 8 * cam.zoom]);
   c.strokeStyle = 'rgba(232,227,239,.3)';
-  c.lineWidth = 1.2;
+  c.lineWidth = 1.2 * cam.zoom;
   c.beginPath();
   const [sx1, sy1] = proj(500, LOT.t + LOT.h + 2);
   const [sx2, sy2] = proj(500, 538);
@@ -786,7 +880,7 @@ function drawShoulder(c) {
   // Static amber/dark chevron edge -- scene grammar for "the warning zone",
   // deliberately never animated (Fable: keep exactly one flashing system on
   // the whole board, and it belongs to the blocked car, not the scenery).
-  for (let x = 180; x < 820; x += 26) {
+  for (let x = 180; x <= 802; x += 26) {
     fillWorldPoly(c, [{ x, y: 606 }, { x: x + 13, y: 598 }, { x: x + 26, y: 606 }, { x: x + 13, y: 614 }],
       (Math.floor((x - 240) / 26) % 2 === 0) ? CHEVRON : '#241f2b');
   }
@@ -847,9 +941,9 @@ function drawAccessRoad(c) {
     }
   }
   c.save();
-  c.setLineDash([8, 8]);
+  c.setLineDash([8 * cam.zoom, 8 * cam.zoom]);
   c.strokeStyle = 'rgba(232,227,239,.3)';
-  c.lineWidth = 1.2;
+  c.lineWidth = 1.2 * cam.zoom;
   c.beginPath();
   const [sx1, sy1] = proj(cx, topY + 6);
   const [sx2, sy2] = proj(cx, bottom - 4);
@@ -872,6 +966,7 @@ function drawBackground(ctx) {
   // road's north end cleanly.
   drawApron(ctx);
   drawRoad(ctx);
+  drawFinishLine(ctx);
   drawLot(ctx);
   drawShoulder(ctx);
   drawAccessRoad(ctx);

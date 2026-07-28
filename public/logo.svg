@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Cupola">
+  <title>Cupola</title>
+  <style>
+    .glow { transform-origin: 100px 88px; animation: cupola-breathe 3.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .glow { animation: none; } }
+    @keyframes cupola-breathe {
+      0%, 100% { opacity: 0.34; transform: scale(1); }
+      50%      { opacity: 0.58; transform: scale(1.12); }
+    }
+  </style>
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="58%" r="75%">
+      <stop offset="0%" stop-color="#221c29"/>
+      <stop offset="100%" stop-color="#100d15"/>
+    </radialGradient>
+    <radialGradient id="glassGrad" gradientUnits="userSpaceOnUse" cx="100" cy="108" r="34">
+      <stop offset="0%" stop-color="#ffe6a8"/>
+      <stop offset="55%" stop-color="#ffc94a"/>
+      <stop offset="100%" stop-color="#c9862a"/>
+    </radialGradient>
+    <filter id="glowBlur" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5.5"/>
+    </filter>
+  </defs>
+
+  <rect x="4" y="4" width="192" height="192" rx="46" fill="url(#bgGrad)"/>
+
+  <ellipse class="glow" cx="100" cy="88" rx="24" ry="13" fill="#ffc94a" opacity="0.4" filter="url(#glowBlur)"/>
+
+  <polygon points="52,152 148,152 128,134 72,134" fill="#6f6579"/>
+
+  <rect x="74" y="96" width="52" height="40" rx="5" fill="url(#glassGrad)" stroke="#9a90a6" stroke-width="3"/>
+  <line x1="91" y1="99" x2="91" y2="133" stroke="#7d7488" stroke-width="2.5"/>
+  <line x1="109" y1="99" x2="109" y2="133" stroke="#7d7488" stroke-width="2.5"/>
+
+  <path d="M74,97 A26,32 0 0 1 126,97 Z" fill="#9a90a6" stroke="#6f6579" stroke-width="2"/>
+
+  <line x1="100" y1="68" x2="100" y2="82" stroke="#9a90a6" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="100" cy="62" r="6" fill="#ffc94a"/>
+</svg>

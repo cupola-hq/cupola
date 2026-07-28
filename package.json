@@ -1,25 +1,39 @@
 {
+  "//": "zero dependencies is a hard constraint, not an oversight -- do not add a \"dependencies\" field. See CONTRIBUTING.md.",
   "name": "cupola",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An ambient, glanceable view of your live Claude Code sessions.",
   "bin": {
-    "cupola": "./bin/cupola.js"
+    "cupola": "bin/cupola.js"
   },
   "files": [
     "server.js",
     "hook.sh",
     "install-hooks.js",
     "bin/",
-    "public/"
+    "public/",
+    "NOTICE",
+    "THEMES.md"
   ],
   "engines": {
     "node": ">=18"
   },
   "license": "Apache-2.0",
+  "author": "JB-cupola",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cupola-hq/cupola.git"
+  },
+  "homepage": "https://github.com/cupola-hq/cupola#readme",
+  "bugs": {
+    "url": "https://github.com/cupola-hq/cupola/issues"
+  },
   "keywords": [
     "claude-code",
     "claude",
     "monitor",
-    "cli"
+    "cli",
+    "dashboard",
+    "tmux"
   ]
 }
