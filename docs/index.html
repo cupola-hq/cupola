@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cupola — an ambient view of your live Claude Code sessions</title>
+<meta name="description" content="An ambient, glanceable view of your live Claude Code sessions. Every running session becomes an inhabitant of a small scene on your second monitor.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #100d15; --panel: #1b1620; --panel-hi: #241f2b;
+    --ink: #f3ecf7; --dim: #9a90a6; --line: #33293e;
+    --gold: #ffc94a; --gold-dim: #c9862a;
+    --green: #46d17f; --red: #e0554e;
+    --mono: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+    --rounded: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 var(--rounded);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  img { max-width: 100%; display: block; }
+
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---- nav ---- */
+  nav.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 0;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .brand svg { width: 34px; height: 34px; flex-shrink: 0; }
+  .brand b { font-size: 18px; font-weight: 700; letter-spacing: .01em; }
+  .navlinks { display: flex; gap: 22px; font-size: 14px; font-weight: 600; }
+  .navlinks a { text-decoration: none; color: var(--dim); transition: color .15s; }
+  .navlinks a:hover { color: var(--ink); }
+
+  /* ---- hero ---- */
+  header.hero { padding: 56px 0 40px; text-align: center; }
+  header.hero h1 {
+    font-size: clamp(32px, 5vw, 52px); font-weight: 750; line-height: 1.12;
+    margin: 0 0 18px; text-wrap: balance; letter-spacing: -.01em;
+  }
+  header.hero h1 span { color: var(--gold); }
+  header.hero p.sub {
+    font-size: 18px; color: var(--dim); max-width: 46em; margin: 0 auto 34px;
+    text-wrap: balance;
+  }
+  .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .install {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 18px; font: 15px var(--mono); color: var(--ink);
+  }
+  .install .prompt { color: var(--dim); user-select: none; }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line);
+    color: var(--ink); text-decoration: none; font-weight: 650; font-size: 15px;
+    transition: border-color .15s, background .15s;
+  }
+  .btn-ghost:hover { border-color: var(--gold-dim); background: var(--panel); }
+
+  /* ---- hero shot ---- */
+  .shot-frame {
+    margin: 48px auto 0; max-width: 900px;
+    border-radius: 16px; border: 1px solid var(--line); overflow: hidden;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.02) inset;
+  }
+  .shot-frame img { width: 100%; }
+
+  /* ---- sections ---- */
+  section { padding: 64px 0; border-top: 1px solid var(--line); }
+  section > h2 {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--gold); margin: 0 0 10px;
+  }
+  section > p.lede { font-size: 17px; color: var(--dim); max-width: 60ch; margin: 0 0 36px; }
+
+  .themes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 760px) { .themes-grid { grid-template-columns: 1fr; } }
+  .theme-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  .theme-card img { width: 100%; border-bottom: 1px solid var(--line); }
+  .theme-card .body { padding: 20px 22px 24px; }
+  .theme-card h3 { margin: 0 0 8px; font-size: 17px; }
+  .theme-card p { margin: 0; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+
+  table.legend { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 14px; }
+  table.legend td { padding: 7px 0; border-top: 1px solid var(--line); }
+  table.legend td:first-child { width: 30%; color: var(--ink); font-weight: 600; white-space: nowrap; }
+  table.legend td:last-child { color: var(--dim); }
+
+  .trust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 8px; }
+  @media (max-width: 760px) { .trust-grid { grid-template-columns: 1fr; } }
+  .trust-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  }
+  .trust-card .num { font: 700 13px var(--mono); color: var(--gold); margin-bottom: 8px; }
+  .trust-card h4 { margin: 0 0 6px; font-size: 15px; }
+  .trust-card p { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.55; }
+
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot.g { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.r { background: var(--red); }
+  .dot.gold { background: var(--gold); }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 36px 0 48px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+    color: var(--dim); font-size: 13.5px;
+  }
+  footer a { text-decoration: none; color: var(--dim); }
+  footer a:hover { color: var(--ink); }
+  footer .flinks { display: flex; gap: 18px; }
+
+  code.inline {
+    font: 13px var(--mono); background: var(--panel-hi); border: 1px solid var(--line);
+    border-radius: 5px; padding: 2px 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="top">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 200 200" role="img" aria-label="Cupola">
+        <style>
+          .glow { transform-origin: 100px 88px; animation: cupola-breathe 3.6s ease-in-out infinite; }
+          @media (prefers-reduced-motion: reduce) { .glow { animation: none; } }
+          @keyframes cupola-breathe {
+            0%, 100% { opacity: 0.34; transform: scale(1); }
+            50%      { opacity: 0.58; transform: scale(1.12); }
+          }
+        </style>
+        <defs>
+          <radialGradient id="bgGrad" cx="50%" cy="58%" r="75%">
+            <stop offset="0%" stop-color="#221c29"/>
+            <stop offset="100%" stop-color="#100d15"/>
+          </radialGradient>
+          <radialGradient id="glassGrad" gradientUnits="userSpaceOnUse" cx="100" cy="108" r="34">
+            <stop offset="0%" stop-color="#ffe6a8"/>
+            <stop offset="55%" stop-color="#ffc94a"/>
+            <stop offset="100%" stop-color="#c9862a"/>
+          </radialGradient>
+          <filter id="glowBlur" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="5.5"/>
+          </filter>
+        </defs>
+        <rect x="4" y="4" width="192" height="192" rx="46" fill="url(#bgGrad)"/>
+        <ellipse class="glow" cx="100" cy="88" rx="24" ry="13" fill="#ffc94a" opacity="0.4" filter="url(#glowBlur)"/>
+        <polygon points="52,152 148,152 128,134 72,134" fill="#6f6579"/>
+        <rect x="74" y="96" width="52" height="40" rx="5" fill="url(#glassGrad)" stroke="#9a90a6" stroke-width="3"/>
+        <line x1="91" y1="99" x2="91" y2="133" stroke="#7d7488" stroke-width="2.5"/>
+        <line x1="109" y1="99" x2="109" y2="133" stroke="#7d7488" stroke-width="2.5"/>
+        <path d="M74,97 A26,32 0 0 1 126,97 Z" fill="#9a90a6" stroke="#6f6579" stroke-width="2"/>
+        <line x1="100" y1="68" x2="100" y2="82" stroke="#9a90a6" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="100" cy="62" r="6" fill="#ffc94a"/>
+      </svg>
+      <b>Cupola</b>
+    </a>
+    <div class="navlinks">
+      <a href="https://github.com/cupola-hq/cupola">GitHub</a>
+      <a href="https://www.npmjs.com/package/cupola">npm</a>
+      <a href="https://github.com/cupola-hq/cupola#readme">Docs</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <h1>Glance at your fleet.<br>Don't read the <span>logs</span>.</h1>
+    <p class="sub">
+      An ambient, glanceable view of your live Claude Code sessions. Every running
+      session becomes an inhabitant of a small scene on your second monitor — you
+      don't read logs, you glance and feel the whole fleet at once: who's working,
+      who's raised a hand for you, who's gone quiet.
+    </p>
+    <div class="cta-row">
+      <div class="install"><span class="prompt">$</span> npx cupola</div>
+      <a class="btn-ghost" href="https://github.com/cupola-hq/cupola">View on GitHub</a>
+    </div>
+  </header>
+
+  <div class="shot-frame">
+    <img src="assets/house.png" alt="The house theme: several Claude Code sessions rendered as people cooking, reading, sleeping, and one with a hand raised waiting for input.">
+  </div>
+
+  <section>
+    <h2>Two ways to watch</h2>
+    <p class="lede">Cupola draws the same fleet two ways. Switch from the header dropdown — same data, different scene.</p>
+    <div class="themes-grid">
+      <div class="theme-card">
+        <img src="assets/house.png" alt="House theme screenshot">
+        <div class="body">
+          <h3>House <span style="color:var(--dim); font-weight: 500;">(default)</span></h3>
+          <p>Each session is a person in a home, doing chores that map to what it's
+            actually doing — cooking at the stove for Bash, watering plants for
+            Edit/Write, on the phone for a spawned subagent. A hand goes up in the
+            living room the moment a session needs you.</p>
+        </div>
+      </div>
+      <div class="theme-card">
+        <img src="assets/racetrack.png" alt="Racetrack theme screenshot">
+        <div class="body">
+          <h3>Racetrack</h3>
+          <p>Each session is a vehicle sized by model — Haiku rides a motorcycle,
+            Opus drives an SUV, Fable gets the luxury car. Working laps the
+            circuit, idle parks with headlights on, and a blocked car pulls onto
+            the shoulder with its hazards flashing.</p>
+        </div>
+      </div>
+    </div>
+
+    <table class="legend">
+      <tr><td><span class="dot g"></span>working</td><td>actively running a tool right now — hooks report this live, not from polling</td></tr>
+      <tr><td><span class="dot gold"></span>needs you</td><td>a real pending question or permission prompt — never guessed, only a genuine <code class="inline">Notification</code> raises this</td></tr>
+      <tr><td>idle</td><td>ready and waiting, nothing pending</td></tr>
+      <tr><td><span class="dot r"></span>gone quiet</td><td>no activity for 10+ minutes</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Why this exists</h2>
+    <p class="lede">
+      The transcript is written retroactively — a tool call only lands in the
+      file <em>after</em> it finishes, so a session mid-command and one sitting
+      idle are byte-identical on disk. Polling the transcript can't show you
+      what's happening right now, and it can't show you a pending question at
+      all — hooks are the only source for either, which is the whole reason
+      Cupola exists instead of being one more log tail.
+    </p>
+    <div class="trust-grid">
+      <div class="trust-card">
+        <div class="num">ZERO DEPS</div>
+        <h4>~1,200 lines you can read in a sitting</h4>
+        <p>No dependencies, no build step, no bundler. The whole daemon is one file, deliberately small enough to actually audit.</p>
+      </div>
+      <div class="trust-card">
+        <div class="num">LOOPBACK ONLY</div>
+        <h4>Binds to 127.0.0.1, nothing else</h4>
+        <p>It serves your prompts and questions verbatim. That's fine on your own machine and not something to put behind a public proxy.</p>
+      </div>
+      <div class="trust-card">
+        <div class="num">DOUBLE-GUARDED</div>
+        <h4>Answering and kicking need two things</h4>
+        <p>An Origin/Host match and a random token minted at startup, embedded only in the page it serves itself. A drive-by page can forge neither.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Apache-2.0. "Cupola" the name isn't part of that grant.</div>
+    <div class="flinks">
+      <a href="https://github.com/cupola-hq/cupola">GitHub</a>
+      <a href="https://www.npmjs.com/package/cupola">npm</a>
+      <a href="https://github.com/cupola-hq/cupola/blob/main/LICENSE">License</a>
+    </div>
+  </footer>
+</div>
+
+</body>
+</html>
+
