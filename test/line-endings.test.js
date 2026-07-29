@@ -18,15 +18,29 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 
+// Binary files don't have "line endings" at all -- checking them for \r\n is
+// not just pointless, it's actively wrong: compressed image data is close
+// enough to random bytes that a stray 0x0D 0x0A pair turning up by pure
+// chance is likely, not exceptional (caught this the hard way: the two PNG
+// screenshots on the landing page both tripped this check on their first
+// commit). Skip by extension rather than trying to content-sniff -- simpler,
+// and every binary type this repo is likely to ever hold is a known format.
+const BINARY_EXT = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp',
+  '.woff', '.woff2', '.ttf', '.otf', '.eot',
+  '.pdf', '.zip', '.gz',
+]);
+
 function trackedFiles() {
   return execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
     .filter(Boolean);
 }
 
-test('every git-tracked file has LF line endings, not CRLF', () => {
+test('every git-tracked text file has LF line endings, not CRLF', () => {
   const offenders = [];
   for (const rel of trackedFiles()) {
+    if (BINARY_EXT.has(path.extname(rel).toLowerCase())) continue;
     const abs = path.join(ROOT, rel);
     if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) continue;
     const buf = fs.readFileSync(abs);
