@@ -1,0 +1,9 @@
+# Force LF everywhere, regardless of core.autocrlf on the checkout machine.
+# hook.sh is a real POSIX shell script executed via a #!/bin/sh shebang on
+# users' machines -- CRLF there isn't cosmetic, it breaks the interpreter
+# line or throws `$'\r': command not found` inside the script body. Every
+# other tracked file was CRLF too (Windows checkout with core.autocrlf=true
+# baked it into the initial commits before this file existed), which is
+# just git-diff noise for JS/JSON/CSS/HTML/MD but still worth normalizing
+# so it doesn't happen again on the one file where it's a real bug.
+* text=auto eol=lf
