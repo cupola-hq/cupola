@@ -1,5 +1,8 @@
 # dependencies (there are none — zero-dep by design — but defensive)
 node_modules/
+# npm still writes one on `npm install` even with zero deps (just the root
+# package's own metadata, nothing to lock) — not worth committing or babysitting
+package-lock.json
 
 # OS / editor cruft
 .DS_Store

@@ -1,10 +1,13 @@
 {
   "//": "zero dependencies is a hard constraint, not an oversight -- do not add a \"dependencies\" field. See CONTRIBUTING.md.",
   "name": "cupola",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "An ambient, glanceable view of your live Claude Code sessions.",
   "bin": {
     "cupola": "bin/cupola.js"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "files": [
     "server.js",

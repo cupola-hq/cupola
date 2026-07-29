@@ -40,7 +40,20 @@ already installed, minus the CLI dispatch.
 
 ## Testing your changes
 
-There's no automated test suite. Two things stand in for one:
+```
+npm test
+```
+
+Runs the suite (`node --test`, Node's built-in runner — no test framework
+dependency, consistent with the zero-dep rule above): syntax-checks every
+shipped `.js` file, verifies `package.json` has no `dependencies`, runs the
+theme conformance checker for both themes, checks every tracked file for
+CRLF line endings (a real bug — see `.gitattributes`), and starts the actual
+daemon to hit a few endpoints over HTTP. CI runs this on Linux, macOS, and
+Windows on every PR.
+
+It's deliberately not exhaustive — it won't catch a layout/rendering
+regression or a hook-wiring bug. Two things stand in for that:
 
 **The fake-crowd harness**, for anything touching layout, rendering, or a
 theme — synthesizes sessions instead of connecting to real ones, so you don't

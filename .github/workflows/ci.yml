@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A stray in-flight run from an earlier push on the same PR is just noise --
+# cancel it rather than let two runs race to post a status.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, standalone check for the project's one hard rule (see the "//"
+  # comment in package.json and CONTRIBUTING.md): no "dependencies" field,
+  # ever. This is also covered inside the test suite (test/no-dependencies.test.js),
+  # but it gets its own job so a violation shows up as its own named,
+  # impossible-to-miss failing check on the PR, not a line buried in a test
+  # log.
+  no-dependencies:
+    name: No dependencies added
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify package.json declares zero dependencies
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const bad = ['dependencies', 'peerDependencies', 'optionalDependencies']
+              .filter(k => pkg[k] && Object.keys(pkg[k]).length > 0);
+            if (bad.length) {
+              console.error('Zero dependencies is a hard project constraint -- see CONTRIBUTING.md.');
+              console.error('Found a populated: ' + bad.join(', '));
+              process.exit(1);
+            }
+            console.log('OK -- no dependencies declared.');
+          "
+      - name: Verify npm install doesn't fetch anything
+        run: |
+          npm install --no-audit --no-fund
+          if [ -d node_modules ] && [ "$(ls -A node_modules 2>/dev/null)" ]; then
+            echo "node_modules is non-empty after install -- something got pulled in." >&2
+            ls -la node_modules >&2
+            exit 1
+          fi
+          echo "OK -- node_modules is empty or absent."
+
+  test:
+    name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  codeql:
+    name: CodeQL security scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
