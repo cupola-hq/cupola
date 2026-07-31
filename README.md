@@ -203,6 +203,51 @@ dashboard. You still run `npx cupola` (or `node server.js`) separately to
 actually start the daemon. `/plugin uninstall cupola` removes the hooks the
 same way `cupola remove-hooks` does.
 
+## Other tools
+
+Cursor (1.7+) and GitHub Copilot CLI (hooks GA since February 2026) both
+ship hook systems now, comparable in shape to Claude Code's own — enough
+that Cupola can show their sessions too, through the same daemon and the
+same dashboard. `/hook` accepts an optional `?tool=` and `?event=` so a
+non-Claude-Code hook can report in without pretending to be one:
+`server.js`'s `normalizeToolHook()` translates each tool's own payload
+shape into the one Claude Code's hooks already send, and a session with no
+transcript from either tool (neither writes to `~/.claude/projects`) still
+gets a row built from hook data alone.
+
+**Read this before turning it on:** unlike the Claude Code integration
+above — built against the real `claude` CLI, installed and uninstalled
+live to confirm it actually works — this was built entirely from each
+tool's current documentation. Neither Cursor nor Copilot CLI was available
+to install and test against directly. The normalizer itself has real
+automated test coverage (`test/server-smoke.test.js`) proving that a
+payload shaped exactly like the documented examples produces a correct
+session row through the same pipeline a Claude Code hook does, not a
+parallel path that could quietly diverge — but whether either tool's real
+hook payload actually matches its own documented shape is unverified. If
+you try this and events aren't showing up, or show up with the wrong
+activity, start with `hooks/adapter.sh`'s header and `normalizeToolHook()`
+in `server.js` — that's where the field-name mapping for each tool lives,
+and it's the most likely place a real payload has drifted from what's
+written here. An issue with the actual payload your hook received (redact
+anything sensitive) is exactly the kind of report that fixes this for
+everyone.
+
+**Known gap:** neither tool's documentation surfaced a confirmed
+equivalent of Claude Code's `Notification` event — the hook that fires for
+permission prompts and idle-waiting, which is how "needs you" (the single
+most important signal in this whole product) actually works. Until one's
+confirmed, a Cursor or Copilot session can show working/idle/stale, but
+not reliably "needs you." Rather than guess at an event name that might
+not exist, that mapping is simply absent — see `SUPPORTED_TOOL_EVENTS` in
+`server.js`.
+
+To try it: copy `hooks/cursor-hooks.json.example` to `.cursor/hooks.json`
+(project) or `~/.cursor/hooks.json` (user), or `hooks/copilot-hooks.json.example`
+to `.github/hooks/` or `~/.copilot/hooks/`, replacing `ABSOLUTE_PATH_TO_CUPOLA`
+with wherever you cloned or globally installed cupola (a one-shot `npx
+cupola` won't give you a stable path to point at).
+
 ## Staying safe
 
 Cupola can type into your terminals, so it's built to be worth trusting — the

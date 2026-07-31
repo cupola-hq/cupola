@@ -74,6 +74,92 @@ const CHORE_ACTIVITY = {
 };
 function activityOf(chore) { return CHORE_ACTIVITY[chore] || (chore ? 'plan' : null); }
 
+// ---- other tools' hooks, normalized to Claude Code's own event shape --------
+// Cupola's hook contract (session_id/hook_event_name/tool_name/tool_input/
+// message) is Claude Code's own hook payload shape, passed through hook.sh
+// unmodified. Cursor (1.7+) and GitHub Copilot CLI (GA Feb 2026) both ship
+// comparable hook systems now, but neither speaks this exact shape, so a
+// same-origin adapter script for each tool POSTs its OWN native payload to
+// /hook?tool=cursor|copilot&event=<CanonicalEventName>&pid=&pane=, and this
+// function translates it into the shape onHook() already understands --
+// onHook() itself never needs to know a non-Claude source exists.
+//
+// `event` arrives as an explicit query param, hardcoded per hook
+// registration (see hooks/cursor-hooks.json, hooks/copilot-hooks.json),
+// rather than parsed out of each tool's own payload -- every tool names its
+// events differently and inconsistently (Cursor: lowerCamelCase like
+// "beforeShellExecution"; Copilot: mixed casing across docs), but a hook
+// registered under a specific event in that tool's OWN hooks.json always
+// fires for that (and only that) event, so the config that wires the hook up
+// already knows the answer with certainty -- no need to infer it from a
+// payload whose exact shape wasn't independently verified against a live
+// install of either tool (neither CLI was available to test against; see
+// the README caveat).
+//
+// KNOWN GAP, stated plainly rather than silently guessed around: neither
+// tool's documented hook set includes a confirmed equivalent of Claude
+// Code's `Notification` event (permission prompts / idle-waiting -- the
+// hand-raise, the single most important signal in this whole product). So
+// TOOL_EVENT_MAP below has no 'blocked' entry for either source: a Cursor or
+// Copilot session can currently show working/idle/stale, but not reliably
+// "needs you", until a real equivalent is confirmed. Don't invent one.
+const TOOL_NAME_MAPS = {
+  // Cursor's own tool_name values (from its preToolUse/postToolUse payload)
+  // -> Claude Code's canonical names, so the existing CHORES table (which
+  // only knows Claude's vocabulary) keeps working unchanged. Only "Shell" is
+  // confirmed from Cursor's own docs; the rest are reasonable guesses at
+  // Cursor's likely naming (mirroring its beforeReadFile/afterFileEdit hook
+  // names) and are NOT independently confirmed.
+  cursor: {
+    Shell: 'Bash', Read: 'Read', Edit: 'Edit', Write: 'Edit',
+    WebSearch: 'WebSearch', WebFetch: 'WebFetch',
+  },
+  // Copilot CLI's toolName values are documented lowercase ("bash" was the
+  // one confirmed example). Same caveat: only "bash" is confirmed, the rest
+  // are inferred from Copilot's own tool set and not independently verified.
+  copilot: {
+    bash: 'Bash', edit: 'Edit', write: 'Edit', read: 'Read',
+    websearch: 'WebSearch', webfetch: 'WebFetch', task: 'Task',
+  },
+};
+
+// Only the two events actually confirmed to reach a plain command hook with
+// a usable, documented payload shape for each tool -- see the doc links in
+// README's "Other tools" section. Extending this needs a live install of
+// the tool to confirm the payload shape, not just its docs.
+const SUPPORTED_TOOL_EVENTS = {
+  cursor: new Set(['SessionStart', 'SessionEnd', 'PreToolUse', 'PostToolUse', 'Stop']),
+  copilot: new Set(['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SessionEnd']),
+};
+
+function normalizeToolHook(tool, event, body) {
+  if (!SUPPORTED_TOOL_EVENTS[tool] || !SUPPORTED_TOOL_EVENTS[tool].has(event)) return null;
+  const nameMap = TOOL_NAME_MAPS[tool] || {};
+  const e = body || {};
+
+  if (tool === 'cursor') {
+    const rawTool = e.tool_name || (event === 'PreToolUse' || event === 'PostToolUse' ? 'Shell' : null);
+    return {
+      session_id: e.conversation_id,
+      hook_event_name: event,
+      tool_name: rawTool ? (nameMap[rawTool] || rawTool) : undefined,
+      tool_input: e.tool_input || (e.command ? { command: e.command } : undefined),
+      cwd: e.cwd || (Array.isArray(e.workspace_roots) ? e.workspace_roots[0] : null) || undefined,
+    };
+  }
+  if (tool === 'copilot') {
+    const rawTool = e.toolName;
+    return {
+      session_id: e.sessionId,
+      hook_event_name: event,
+      tool_name: rawTool ? (nameMap[rawTool] || rawTool) : undefined,
+      tool_input: e.toolInput || e.toolResult,
+      cwd: e.cwd || undefined,
+    };
+  }
+  return null;
+}
+
 // ---- roster: who is actually running ----------------------------------------
 // `claude agents --json` is authoritative and answers what the filesystem can't:
 // which sessions EXIST right now, their pid, and busy-vs-idle. Before adopting
@@ -805,6 +891,40 @@ function scan() {
     }
   }
 
+  // Hook-only sessions: the same "no transcript yet" problem the roster
+  // tier above solves, one layer further down. That tier still needs the
+  // roster (`claude agents --json`) to know the session exists at all --
+  // fine for Claude Code, which the roster covers, but a Cursor or Copilot
+  // session is invisible to both the jsonl scan AND that roster (neither
+  // tool writes to ~/.claude/projects, and `claude agents` obviously
+  // doesn't enumerate another vendor's sessions). A hook is the ONLY signal
+  // that a non-Claude session exists at all, so this tier is the floor:
+  // anything reporting live hook state that the two tiers above didn't
+  // already claim gets a minimal row built from hook data alone -- no
+  // title, no branch, no token count, because hooks carry none of that.
+  for (const [id, h] of live) {
+    if (dismissed.has(id) || out.some(s => s.id === id)) continue;
+    if (now - h.ts >= HOOK_TTL_MS) continue; // a claim this old is a lie, same rule as everywhere else
+    const pid = pids.get(id) || null;
+    const pane = panes.get(id) || null;
+    out.push({
+      id,
+      project: h.cwd || '',
+      room: roomOf(h.cwd, h.tool || ''),
+      label: shortCwd(h.cwd, h.tool || '') || `${h.tool || 'external'} session`,
+      state: h.state, chore: h.chore, activity: activityOf(h.chore), question: h.question, detail: h.detail,
+      live: true,
+      lastPrompt: null, lastResponse: null,
+      cwd: h.cwd || null, gitBranch: null,
+      contextTokens: 0, heft: 0, model: null, tier: 'plain',
+      source: h.tool || 'claude',
+      pid, pane,
+      evictable: pid ? alive(pid) : false,
+      answerable: pane ? paneOwnsPidCached(pane, pid) : false,
+      age: now - h.ts,
+    });
+  }
+
   out.sort((a, b) => a.id.localeCompare(b.id)); // stable => visitors don't teleport
   assignNames(out);
   return out;
@@ -812,7 +932,7 @@ function scan() {
 
 // ---- hook intake -------------------------------------------------------------
 
-function onHook(e, pid, pane) {
+function onHook(e, pid, pane, tool) {
   const id = e.session_id;
   if (!id) return;
   if (pid) pids.set(id, pid);
@@ -822,7 +942,17 @@ function onHook(e, pid, pane) {
   const ev = e.hook_event_name;
   const now = Date.now();
   const prev = live.get(id) || {};
-  let s = { ts: now, state: WORKING, chore: prev.chore || 'tidying', question: null, detail: null };
+  // `tool`/`cwd` exist for one reason: a Cursor or Copilot session has no
+  // ~/.claude/projects/**/*.jsonl and never appears in `claude agents --json`
+  // -- scan()'s two normal ways to discover a session ROW at all -- so it
+  // needs a third path built from hook data alone (see the "hook-only"
+  // fallback tier in scan(), below the roster-only one it mirrors). `tool`
+  // defaults to 'claude' (the original, tested path) whenever the /hook
+  // handler doesn't pass one, which today is never -- see its own comment.
+  let s = {
+    ts: now, state: WORKING, chore: prev.chore || 'tidying', question: null, detail: null,
+    tool: tool || prev.tool || 'claude', cwd: e.cwd || prev.cwd || null,
+  };
 
   switch (ev) {
     case 'SessionStart':
@@ -954,8 +1084,21 @@ const server = http.createServer((req, res) => {
       if (m) pid = Number(m[1]);
       const pm = /[?&]pane=([^&]*)/.exec(req.url);
       if (pm && pm[1]) { try { pane = decodeURIComponent(pm[1]) || null; } catch {} }
-      try { onHook(JSON.parse(body), pid, pane); } catch {}
-      res.writeHead(204).end();   // never make Claude Code wait or fail
+      // Absent or explicit `tool=claude` -- the original, tested path:
+      // Claude Code's own hook.sh POSTs its payload already shaped exactly
+      // as onHook() expects, unmodified. Any other `tool=` value goes
+      // through normalizeToolHook() first (see its comment for why `event`
+      // is a separate, explicit query param rather than read off the body).
+      const tm = /[?&]tool=([^&]*)/.exec(req.url);
+      const tool = tm ? decodeURIComponent(tm[1]) : 'claude';
+      const em = /[?&]event=([^&]*)/.exec(req.url);
+      const event = em ? decodeURIComponent(em[1]) : null;
+      try {
+        const parsed = JSON.parse(body);
+        const e = tool === 'claude' ? parsed : normalizeToolHook(tool, event, parsed);
+        if (e) onHook(e, pid, pane, tool);
+      } catch {}
+      res.writeHead(204).end();   // never make Claude Code (or another tool) wait or fail
       broadcast(false);
     });
     return;

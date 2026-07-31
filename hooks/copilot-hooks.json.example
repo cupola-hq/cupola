@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot SessionStart", "timeoutSec": 2 }
+    ],
+    "userPromptSubmit": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot UserPromptSubmit", "timeoutSec": 2 }
+    ],
+    "preToolUse": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot PreToolUse", "timeoutSec": 2 }
+    ],
+    "postToolUse": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot PostToolUse", "timeoutSec": 2 }
+    ],
+    "stop": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot Stop", "timeoutSec": 2 }
+    ],
+    "sessionEnd": [
+      { "type": "command", "bash": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" copilot SessionEnd", "timeoutSec": 2 }
+    ]
+  }
+}

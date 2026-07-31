@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "command": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" cursor SessionStart", "timeout": 2 }
+    ],
+    "preToolUse": [
+      { "type": "command", "command": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" cursor PreToolUse", "timeout": 2 }
+    ],
+    "postToolUse": [
+      { "type": "command", "command": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" cursor PostToolUse", "timeout": 2 }
+    ],
+    "stop": [
+      { "type": "command", "command": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" cursor Stop", "timeout": 2 }
+    ],
+    "sessionEnd": [
+      { "type": "command", "command": "sh \"ABSOLUTE_PATH_TO_CUPOLA/hooks/adapter.sh\" cursor SessionEnd", "timeout": 2 }
+    ]
+  }
+}
