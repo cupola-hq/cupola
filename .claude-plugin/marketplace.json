@@ -1,0 +1,19 @@
+{
+  "name": "cupola-marketplace",
+  "description": "Marketplace for the Cupola plugin -- wires the Claude Code hooks Cupola's live dashboard needs.",
+  "owner": { "name": "JB-cupola" },
+  "plugins": [
+    {
+      "name": "cupola",
+      "displayName": "Cupola",
+      "description": "Wires the Claude Code hooks Cupola's live dashboard needs. Run `npx cupola` separately to start the dashboard.",
+      "version": "0.3.0",
+      "source": ".",
+      "homepage": "https://cupola.sh",
+      "repository": "https://github.com/cupola-hq/cupola",
+      "license": "Apache-2.0",
+      "keywords": ["dashboard", "monitoring", "ambient", "sessions"],
+      "category": "productivity"
+    }
+  ]
+}

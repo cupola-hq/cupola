@@ -1,0 +1,26 @@
+{
+  "description": "Forwards session lifecycle and tool events to the Cupola daemon (npx cupola) running on localhost:7777. Fires on every event listed below, for every tool -- no matcher, since hook.sh's own job is just to report which pid/tmux-pane is doing something right now, not to filter or block anything. Mirrors install-hooks.js's EVENTS list and per-event shape exactly, so a settings.json-based install and this plugin register functionally identical hooks.",
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "PreToolUse": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "Notification": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hook.sh\"", "timeout": 2 } ] }
+    ]
+  }
+}

@@ -190,6 +190,19 @@ sessions pick the hooks up without a restart. Sessions that predate the hooks
 still appear (via the roster) — they just can't show chores, and the panel marks
 them `no live hook`.
 
+**Or as a Claude Code plugin**, which wires the same hooks automatically
+instead of running a script by hand:
+
+```
+/plugin marketplace add cupola-hq/cupola
+/plugin install cupola@cupola-marketplace
+```
+
+This only replaces the hook-wiring step above — it doesn't start the
+dashboard. You still run `npx cupola` (or `node server.js`) separately to
+actually start the daemon. `/plugin uninstall cupola` removes the hooks the
+same way `cupola remove-hooks` does.
+
 ## Staying safe
 
 Cupola can type into your terminals, so it's built to be worth trusting — the

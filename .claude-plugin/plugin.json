@@ -1,0 +1,11 @@
+{
+  "name": "cupola",
+  "displayName": "Cupola",
+  "version": "0.3.0",
+  "description": "Wires the Claude Code hooks Cupola's live dashboard needs. Enabling this plugin replaces the manual `cupola install-hooks` step -- it does not start the dashboard itself. Run `npx cupola` (or `node server.js` from a clone) separately to start the daemon at http://localhost:7777.",
+  "author": { "name": "JB-cupola" },
+  "homepage": "https://cupola.sh",
+  "repository": "https://github.com/cupola-hq/cupola",
+  "license": "Apache-2.0",
+  "keywords": ["dashboard", "monitoring", "ambient", "sessions"]
+}
