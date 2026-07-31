@@ -19,6 +19,8 @@ opens http://localhost:7777. Running from a clone instead works the same way:
 No dependencies, no build — Node only. Binds to loopback only: it serves your
 prompts and questions verbatim, so don't expose it (see [Staying safe](#staying-safe)).
 
+![Cupola cycling through its six themes](docs/assets/cupola-themes.gif)
+
 ## Themes
 
 Cupola draws the same fleet six ways; switch from the header dropdown.
