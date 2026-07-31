@@ -21,12 +21,30 @@ prompts and questions verbatim, so don't expose it (see [Staying safe](#staying-
 
 ## Themes
 
-Cupola draws the same fleet two ways; switch from the header dropdown.
+Cupola draws the same fleet six ways; switch from the header dropdown.
 
 - **House** (default) — each session is a person in a home, doing chores that
   map to what the session is doing.
 - **Racetrack** — each session is a vehicle on a circuit: working sessions lap
   the track, idle ones park, blocked ones pull onto the shoulder.
+- **Restaurant kitchen** — each session is kitchen staff working their station,
+  thrusting a ticket overhead at the pass when they need you, hiding in the
+  walk-in when they've gone quiet.
+- **The hive** — each session is a bee working its station or out foraging,
+  fanning an alarm pheromone at the landing board when it needs you, docked
+  head-first in a cell when it's gone quiet.
+- **Concert hall** — each session is a musician playing their section,
+  stepping to the front of the stage and waving when they need you, resting
+  in the green room when they've gone quiet.
+- **The Station** — each session is orbital crew working their module or out
+  on a tether, flaring a distress beacon below the hull when they need you,
+  cocooned in a sleep pod when they've gone quiet.
+
+Every theme uses the same four states and six activities underneath — only
+the scenery changes. Click **overlay** in any theme to shade the board by
+what each area is for, and the panel on the right explains states,
+activities, and model tiers for whichever theme is active when nothing's
+selected.
 
 Themes are **data, not a fork**: a `theme.json` (regions, routes, and "places"
 inhabitants stand in) plus a `render.js` (the art). A conformance checker keeps
@@ -75,6 +93,12 @@ heft, not speed:
 - **idle** — drives in off the access road and parks in the lot, **headlights
   on** — lit means ready.
 - **gone quiet** — parked, dark, a "z" drifting up.
+
+The other four themes follow the same house/racetrack pattern (one place per
+activity, one place for needing you, one for going quiet) with their own
+scenery instead of a duplicated table here — use the in-app **overlay** and
+legend panel to see any theme's own mapping live, since it's generated from
+that theme's actual `theme.json` rather than hand-kept in sync with it.
 
 ## Reading a session
 
@@ -201,6 +225,7 @@ population — a theme that lets anyone escape its regions fails to load:
 ```
 node bin/check-theme.js public/themes/house
 node bin/check-theme.js public/themes/car
+# same for brigade / hive / orchestra / station
 ```
 
 ## Knobs

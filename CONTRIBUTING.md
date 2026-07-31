@@ -75,6 +75,7 @@ that lets an inhabitant escape its regions at any population fails to load:
 ```
 node bin/check-theme.js public/themes/house
 node bin/check-theme.js public/themes/car
+# same for brigade / hive / orchestra / station
 ```
 
 For anything else (hooks, the daemon's HTTP endpoints, `install-hooks.js`),
