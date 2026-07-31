@@ -33,6 +33,7 @@
     border-radius: 6px; cursor: pointer; font-weight: 600;
   }
   #cam-ui button:hover { background: #3d3447; }
+  #cam-ui button.active { background: #46d17f; border-color: #46d17f; color: #0f2417; }
   #cam-ui select {
     flex: 0 0 auto; padding: 4px 10px; font-size: 11px;
     background: #322b3b; color: var(--ink); border: 1px solid var(--line);
@@ -88,6 +89,35 @@
   button.armed { background: #b5322c; border-color: #b5322c; color: #fff; }
   button:disabled { opacity: .4; cursor: not-allowed; }
   .note { font-size: 11px; color: var(--dim); }
+
+  /* ---- legend: an at-a-glance key for "what does this scene mean". The text
+     half lives in #side's own empty state (below) so it never covers the
+     canvas; only the shaded-zone canvas overlay has a separate toggle
+     (#b-overlay), since that one really does draw on top of the scene. */
+  /* Its own layer, stacked above BOTH the canvas and the actor SVG (later in
+     DOM order = painted later = on top) -- a canvas-drawn label can end up
+     hidden under an actor's own artwork (a car's hazard triangle, a bee's
+     alert halo) since actors live in #sims, itself already stacked above the
+     canvas per sims.css's #board rule; this layer has to win that stacking
+     fight no matter which theme's scenery happens to be busiest at that spot. */
+  #zone-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #zone-tags.hidden { display: none; }
+  .zone-tag {
+    position: absolute; transform: translate(-3px, -3px);
+    font: 800 11px ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    letter-spacing: .02em; white-space: nowrap;
+    padding: 3px 7px; border-radius: 5px; background: rgba(10,8,16,.82);
+  }
+  #side .blurb { font-size: 12px; color: var(--dim); line-height: 1.45; }
+  #side .leg-h { font-size: 10px; color: var(--dim); text-transform: uppercase;
+    letter-spacing: .06em; margin-top: 4px; }
+  .leg-zone { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+  .leg-zone .sw { width: 11px; height: 11px; border-radius: 3px; flex: 0 0 auto; }
+  .leg-zone .zt { font-weight: 650; }
+  .leg-zone .zd { color: var(--dim); }
+  .leg-row { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; }
+  .leg-row b { font-size: 12px; }
+  .leg-row .leg-sub { font-size: 11px; color: var(--dim); line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -95,6 +125,7 @@
     <div id="board">
       <canvas id="c"></canvas>
       <svg id="sims" viewBox="0 0 1000 790" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="zone-tags"></div>
     </div>
     <div id="hud">
       <span><span class="dot" id="live-dot"></span><span id="live-text">connecting</span></span>
@@ -106,6 +137,7 @@
     <div id="cam-ui">
       <select id="b-theme" title="Theme"></select>
       <button id="b-fit" title="F">fit</button>
+      <button id="b-overlay" title="Shade each area by what it's for">overlay</button>
       <span class="hint">scroll to zoom · drag to pan</span>
     </div>
   </div>
@@ -556,7 +588,19 @@ function updateSim(s, sp) {
   // nose-in/pulled-off mirror below, not whatever stale heading it arrived
   // on).
   const walking = !!rotor && sp.moving && sp.walkAngle != null;
-  if (sp.onLoop || parkedNoseIn || walking) {
+  // Gated on `rotor` here too (not just inside the branch's rotate() calls
+  // below): without it, a biped theme with a loop place (no `.rotor` at all
+  // -- brigade's server, hive's forager) still tripped this branch purely
+  // from `sp.onLoop`, fell all the way through past the `if (rotor)` no-op,
+  // and hit the unconditional `body.setAttribute('transform', '')` below --
+  // wiping out the ordinary `scale(face,1)` mirror with nothing to replace
+  // it (no rotor to rotate), so a biped lapping a loop never mirrored to
+  // face the way it was walking, in either direction, the whole time it was
+  // on the ring. `rotor &&` makes this whole branch a no-op for any theme
+  // that doesn't declare one, same as every rotor-gated line already inside
+  // it -- cars are unaffected (rotor is truthy there in every case that used
+  // to reach here).
+  if (rotor && (sp.onLoop || parkedNoseIn || walking)) {
     // Real rotation (loopTrack() computed sp.renderAngle, world-space
     // degrees, smoothed, for the onLoop case; parkedNoseIn uses the fixed
     // PARK_ANGLE_DEG above instead -- a parked car's angle never changes).
@@ -763,14 +807,14 @@ const FAKE_N = Number(QS.get('fake') || 0);
 // The boxes are WORLD-space rects, so they must be projected like everything
 // else. Drawing them raw put un-projected rectangles over an iso scene -- the
 // harness meant to check the layout was itself lying.
-function outline(c, b, stroke, fill) {
+function outline(c, b, stroke, fill, lw) {
   const p = [proj(b.l, b.t), proj(b.r, b.t), proj(b.r, b.b), proj(b.l, b.b)];
   if (fill) poly(c, p, fill);
   c.beginPath();
   c.moveTo(p[0][0], p[0][1]);
   for (let i = 1; i < 4; i++) c.lineTo(p[i][0], p[i][1]);
   c.closePath();
-  c.strokeStyle = stroke; c.lineWidth = 1; c.stroke();
+  c.strokeStyle = stroke; c.lineWidth = lw || 1; c.stroke();
 }
 
 function drawBoxes(c) {
@@ -789,6 +833,204 @@ function drawBoxes(c) {
             (escaped || clash) ? 'rgba(255,60,60,.3)' : 'rgba(70,209,127,.12)');
   }
 }
+
+// ---- legend: a plain-English key for "what does this scene mean" ----------
+// A first-time (or just curious) viewer has no way to know that the stove is
+// where Bash commands render, or that the shoulder/pass/board/beacon is the
+// one spot that means "come look at this" -- every theme has its own scenery
+// standing in for the same handful of universal concepts. Two halves, built
+// from the same THEME.places data: the text half (state glossary + this
+// theme's activity->place mapping) lives in #side's own empty state below,
+// since it's replacing dead space rather than covering the scene; only the
+// live canvas overlay (shading each place's approximate footprint, via the
+// theme-agnostic ThemeEngine.placeBounds() -- the same box math ?boxes=
+// already trusts) draws on top of things, so only that half gets a toggle
+// (#b-overlay).
+let SHOW_ZONES = localStorage.getItem('cupola-zones') === '1';
+
+// Deliberately the SAME four words the HUD counters already use ("working",
+// "need you", "idle", "resting") -- inventing new terminology for the same
+// concept the corner of the screen already names would just be confusing.
+// Idle vs resting is a TIME distinction, not a mood one -- said explicitly
+// below, since "waiting" and "quiet a while" read as near-synonyms otherwise.
+// Overflow isn't a 5th state at all (a session there can be working, idle,
+// blocked, or stale) -- it's called out as a different kind of thing, and
+// drawn with a dashed border (see drawLegendZones) so it doesn't read as a
+// peer of the four real states.
+// Colors match STATE_COLOR exactly (the session-detail badge's own palette,
+// defined above) -- this legend is describing the SAME four states that
+// badge already shows, so it must use the SAME colors for each, not an
+// independently-chosen palette that happens to also be four colors.
+const ZONE_DEFS = {
+  working:  { title: 'Working',  sw: STATE_COLOR.working, stroke: 'rgba(70,209,127,.95)',  fill: 'rgba(70,209,127,.28)',
+              desc: 'Actively running something right now.' },
+  idle:     { title: 'Idle',     sw: STATE_COLOR.idle,    stroke: 'rgba(106,169,255,.95)', fill: 'rgba(106,169,255,.26)',
+              desc: 'Free right now -- finished its last task and waiting for the next one.' },
+  blocked:  { title: 'Need you', sw: STATE_COLOR.blocked, stroke: 'rgba(255,201,74,1)',    fill: 'rgba(255,201,74,.34)',
+              desc: 'Stopped and waiting on YOUR reply -- the one state worth interrupting for.' },
+  stale:    { title: 'Resting',  sw: STATE_COLOR.stale,   stroke: 'rgba(140,127,160,.95)', fill: 'rgba(140,127,160,.28)',
+              desc: 'Been idle much longer than that -- probably done for good, or stuck and worth a check.' },
+  overflow: { title: 'Overflow', sw: '#9a90a6', stroke: 'rgba(154,144,166,.8)',  fill: 'rgba(154,144,166,.18)', dash: true,
+              desc: 'Not a state of its own -- any session (working, idle, blocked, or resting) ends up here once its usual spot is full.' },
+};
+
+// Universal across every theme: `activity` is a property of the SESSION
+// (what Claude Code is actually doing), not of any one theme's scenery, so
+// its meaning doesn't change from house to hive to station -- only which
+// prop/station represents it does (that part comes from THEME.places).
+// No icon field -- an earlier version paired each entry with a generic emoji
+// (gear, pencil, globe...), which implied that symbol actually appears
+// somewhere on the character. It doesn't: the real per-theme visual is
+// whatever prop/station THEME.places names (a sauté pan, a violin, a
+// torque driver...), and a stock emoji floating next to unrelated art read
+// as confusing rather than clarifying. Text only; the actual visual is
+// whatever the theme draws.
+const ACTIVITY_GLOSSARY = {
+  exec:     { title: 'Running a command', desc: 'Bash -- executing shell commands.' },
+  edit:     { title: 'Editing files', desc: 'Writing or modifying code.' },
+  read:     { title: 'Reading', desc: 'Reading files, or searching the codebase.' },
+  plan:     { title: 'Planning', desc: 'Deciding what to do next (also the default when nothing more specific applies).' },
+  delegate: { title: 'Delegating', desc: 'Handing work off to a sub-agent.' },
+  net:      { title: 'Fetching from the web', desc: 'WebFetch or WebSearch -- the one activity that leaves your usual spot, since it is the one activity that reaches outside your own files.' },
+};
+
+// Tier is which underlying Claude model the session is running (`--model`),
+// not an activity or a state -- every theme reskins it as a silhouette-first
+// size/finery ladder (a runt, a baseline, something visibly bigger, something
+// gaudy) so it reads at a glance without needing this text at all, but the
+// glance doesn't explain WHICH model that maps to, hence this section.
+const TIER_GLOSSARY = [
+  { key: 'haiku',  sw: '#9a90a6', title: 'Haiku',  desc: 'Smallest and simplest look in every theme -- the fast, lightweight model.' },
+  { key: 'sonnet', sw: '#f3ecf7', title: 'Sonnet', desc: 'The default look every theme is built around -- the standard model.' },
+  { key: 'opus',   sw: '#c9a86a', title: 'Opus',   desc: 'Visibly larger or more built-up -- the heavier, more capable model.' },
+  { key: 'fable',  sw: '#ffc94a', title: 'Fable',  desc: 'The gaudiest look on purpose (gold, sparkles, a crown or its theme equivalent) -- Anthropic\'s creative-writing model.' },
+];
+
+function prettifyId(id) {
+  return id.replace(/[-_]/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+}
+
+// Categorizes one PLACE (not one live sprite) by what it's for, so the
+// legend can label "this area is for X" even when nobody's standing in it
+// right now. accepts.state is a capability list, not a live status -- a
+// mixed working+blocked section (orchestra's chairs, which a blocked
+// musician never leaves) is still fundamentally a working area that can
+// also flag attention in place, so it's tagged 'working' plus a note rather
+// than a permanent, scarier "need you" over the whole stage.
+function zoneOf(place) {
+  const raw = place.accepts.state;
+  const states = new Set(Array.isArray(raw) ? raw : [raw]);
+  if (states.size >= 3) return ZONE_DEFS.overflow;
+  if (states.has('blocked') && states.has('working'))
+    return Object.assign({}, ZONE_DEFS.working, { note: 'Also flags here if blocked.' });
+  if (states.size === 1 && states.has('blocked')) return ZONE_DEFS.blocked;
+  if (states.has('working')) return ZONE_DEFS.working;
+  if (states.has('idle')) return ZONE_DEFS.idle;
+  if (states.has('stale')) return ZONE_DEFS.stale;
+  return null;
+}
+
+// The shaded rect is canvas (cheap, and it sits behind every actor anyway --
+// a translucent fill reads fine under sprite art). The TEXT label is a plain
+// DOM element in #zone-tags instead: a canvas-drawn label can only ever be
+// UNDER the actor SVG layer (#sims is stacked above the canvas so clicking
+// and CSS animation work), so in a busy spot -- a car theme's hazard
+// triangles, a hive's alert halos -- it was getting buried by the very
+// artwork it was trying to label. #zone-tags is its own layer stacked above
+// BOTH, so the label always wins. It's also just the plain zone name (no
+// per-place flavor caption) -- that fixed the other problem, subtext
+// overflowing past its own box, simply by being short enough not to.
+let zoneTagEls = new Map(); // place.id -> <div class="zone-tag">
+
+function buildZoneTags() {
+  const host = document.getElementById('zone-tags');
+  host.innerHTML = '';
+  zoneTagEls = new Map();
+  if (!THEME) return;
+  for (const p of THEME.places) {
+    const zone = zoneOf(p);
+    if (!zone) continue;
+    const el = document.createElement('div');
+    el.className = 'zone-tag';
+    el.textContent = zone.title.toUpperCase();
+    el.style.color = zone.sw;
+    host.appendChild(el);
+    zoneTagEls.set(p.id, el);
+  }
+}
+
+function drawLegendZones(c) {
+  const z = cam.zoom;
+  for (const p of THEME.places) {
+    const zone = zoneOf(p);
+    const b = zone && ThemeEngine.placeBounds(THEME, p);
+    if (!b) continue;
+    if (zone.dash) c.setLineDash([6 * z, 5 * z]);
+    outline(c, b, zone.stroke, zone.fill, 2.5 * z);
+    if (zone.dash) c.setLineDash([]);
+
+    const tag = zoneTagEls.get(p.id);
+    if (tag) {
+      const [lx, ly] = proj(b.l + 4, b.t + 4);
+      tag.style.left = lx + 'px';
+      tag.style.top = ly + 'px';
+    }
+  }
+}
+
+// Builds the text half's markup -- called from renderSide()'s empty state,
+// not from any toggle, since it's just filling space that used to hold one
+// static sentence.
+function legendHTML() {
+  if (!THEME) return '';
+  const zoneRow = z => `<div class="leg-zone"><span class="sw" style="background:${z.sw}"></span>
+    <span class="zt">${esc(z.title)}</span><span class="zd">&mdash; ${esc(z.desc)}</span></div>`;
+  const zoneRows = ['working', 'idle', 'blocked', 'stale'].map(k => zoneRow(ZONE_DEFS[k])).join('');
+  const hasOverflow = THEME.places.some(p => zoneOf(p) === ZONE_DEFS.overflow);
+  // Which activities THIS theme actually shows at a distinct place -- a
+  // theme that doesn't (the racetrack: every working car laps the same loop
+  // no matter what it's doing) has nothing to report here, and the section
+  // below is skipped entirely rather than listing all 6 anyway.
+  const placeByActivity = {};
+  for (const p of THEME.places) {
+    const act = p.accepts.activity && p.accepts.activity[0];
+    if (act && !placeByActivity[act]) placeByActivity[act] = p;
+  }
+  // Only activities this THEME actually shows differently get a row -- and
+  // if none do (the racetrack: every working car laps the same loop no
+  // matter what it's doing, distinguished only by a dashboard prop too
+  // small to read at board scale, not by a place), the whole section is
+  // skipped rather than listing all 6 anyway. Showing a full "what each
+  // session is doing" list with no real visual behind it implied a
+  // distinction the scene doesn't make, which was MORE confusing than
+  // saying nothing -- confirmed live on the racetrack.
+  const shownActivities = Object.keys(ACTIVITY_GLOSSARY).filter(act => placeByActivity[act]);
+  const activityRows = shownActivities.map(act => {
+    const g = ACTIVITY_GLOSSARY[act];
+    const where = placeByActivity[act].label || prettifyId(placeByActivity[act].id);
+    return `<div class="leg-row"><div><b>${esc(g.title)}</b>
+      <div class="leg-sub">${esc(where)} &mdash; ${esc(g.desc)}</div></div></div>`;
+  }).join('');
+
+  const tierRows = TIER_GLOSSARY.map(zoneRow).join('');
+
+  return `<h2>${esc(THEME.title || THEME.name)}</h2>` +
+    (THEME.blurb ? `<div class="blurb">${esc(THEME.blurb)}</div>` : '') +
+    `<div class="leg-h">What the states mean</div>${zoneRows}` +
+    (hasOverflow ? zoneRow(ZONE_DEFS.overflow) : '') +
+    (shownActivities.length ? `<div class="leg-h">What each session is doing</div>${activityRows}` : '') +
+    `<div class="leg-h">Which model (tier)</div>${tierRows}` +
+    `<div class="note">Click a visitor to see what they're doing.</div>`;
+}
+
+function setZones(on) {
+  SHOW_ZONES = on;
+  localStorage.setItem('cupola-zones', on ? '1' : '0');
+  document.getElementById('b-overlay').classList.toggle('active', on);
+  document.getElementById('zone-tags').classList.toggle('hidden', !on);
+  if (on) buildZoneTags();
+}
+document.getElementById('b-overlay').onclick = () => setZones(!SHOW_ZONES);
 
 // ---- fx layer ------------------------------------------------------------
 // The house never changes on its own -- it only moves when the camera does
@@ -876,6 +1118,12 @@ function frame(now) {
     ctx.drawImage(layer, 0, 0, W, H);
     renderer().drawFX(ctx, now / 1000);
   }
+  // Independent of DEBUG_BOXES/REDUCE_MOTION above: a user-facing "what does
+  // this scene mean" overlay, opt-in via #b-overlay, drawn fresh every frame
+  // this function runs at all (which is every rAF tick in every branch,
+  // REDUCE_MOTION included -- sprite stepping below still needs to run) so
+  // it never goes stale after a pan/zoom the way a cached layer would.
+  if (SHOW_ZONES) drawLegendZones(ctx);
 
   const step = (sp) => {
     if (sp.path && sp.path.length) {
@@ -1065,9 +1313,13 @@ function renderSide() {
   const side = document.getElementById('side');
   const s = sessions.find(x => x.id === selected);
   if (!s) {
-    if (sideSig === 'empty') return;
-    sideSig = 'empty';
-    side.innerHTML = '<div class="empty">Click a visitor to see what they\'re doing.</div>';
+    // Keyed by theme name (not just 'empty'): the legend content below is
+    // theme-specific, so a switchTheme() while nothing's selected must still
+    // rebuild it, not hit this cache and leave the old theme's text up.
+    const sig = 'empty:' + (THEME ? THEME.name : '');
+    if (sideSig === sig) return;
+    sideSig = sig;
+    side.innerHTML = legendHTML();
     return;
   }
   // Only rebuild when something shown has changed: rebuilding resets the scroll
@@ -1359,6 +1611,7 @@ async function switchTheme(name) {
   fitCamera();
   if (sessions.length) layout();
   counts(); renderSide(); syncSelection();
+  if (SHOW_ZONES) buildZoneTags(); // stale place ids from the old theme otherwise
 
   localStorage.setItem('sim-theme', name);
   const url = new URL(location.href);
@@ -1417,6 +1670,8 @@ function startFakeHarness() {
   }
   fitCamera();
   populateThemePicker();
+  if (SHOW_ZONES) setZones(true); // restore last session's toggle
+  renderSide(); // the empty state's legend text needs THEME, not present at initial page parse
 
   if (FAKE_N > 0) startFakeHarness();
   else connect();

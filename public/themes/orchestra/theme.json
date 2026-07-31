@@ -1,0 +1,86 @@
+{
+  "format": 1,
+  "name": "orchestra",
+  "title": "Concert hall",
+  "blurb": "Sessions are musicians in an orchestra -- playing their section, stepping to the front of the stage and waving when they need you, resting in the green room when they've gone quiet.",
+  "world": { "w": 1000, "h": 790 },
+  "wall": 8,
+  "outsideRegion": "outside",
+  "hub": "stage",
+
+  "regions": {
+    "backstage": { "l": 60, "r": 940, "t": 60,  "b": 230, "anchor": { "x": 500, "y": 145 } },
+    "stage":     { "l": 60, "r": 940, "t": 230, "b": 580, "anchor": { "x": 500, "y": 480 } },
+    "outside":   { "anchor": { "x": 500, "y": 690 } }
+  },
+
+  "portals": {
+    "stagedoor": { "x": 770, "y": 230, "joins": ["backstage", "stage"] },
+    "apron":     { "x": 500, "y": 580, "joins": ["stage", "outside"] }
+  },
+
+  "places": [
+    { "id": "violins",   "kind": "grid", "region": "stage", "label": "Playing violin",
+      "accepts": { "state": "working", "activity": ["edit"] },
+      "pose": "sit", "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 275, "y": 438, "cols": 3, "colPitch": 78, "rowPitch": 62, "span": 84 } },
+
+    { "id": "cellos",    "kind": "grid", "region": "stage", "label": "Playing cello",
+      "accepts": { "state": "working", "activity": ["read"] },
+      "pose": "sit", "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 725, "y": 438, "cols": 3, "colPitch": 78, "rowPitch": 62, "span": 84 } },
+
+    { "id": "woodwinds", "kind": "grid", "region": "stage", "label": "Playing oboe",
+      "accepts": { "state": "working", "activity": ["plan"] },
+      "pose": "sit", "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 385, "y": 358, "cols": 2, "colPitch": 78, "rowPitch": 62, "span": 62 } },
+
+    { "id": "harp",      "kind": "grid", "region": "stage", "label": "Playing harp",
+      "accepts": { "state": "working", "activity": ["delegate"] },
+      "pose": "sit", "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 625, "y": 358, "cols": 2, "colPitch": 88, "rowPitch": 62, "span": 62 } },
+
+    { "id": "brass",     "kind": "grid", "region": "stage", "label": "Playing trumpet",
+      "accepts": { "state": "working", "activity": ["net"] },
+      "pose": "sit", "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 310, "y": 278, "cols": 3, "colPitch": 80, "rowPitch": 62, "span": 62 } },
+
+    { "id": "percussion","kind": "grid", "region": "stage", "label": "Playing timpani",
+      "accepts": { "state": "working", "activity": ["exec"] },
+      "faceAt": 500, "overflow": "warmup",
+      "grid": { "x": 690, "y": 278, "cols": 3, "colPitch": 84, "rowPitch": 62, "span": 62 } },
+
+    { "id": "help", "kind": "slots", "region": "stage", "prio": 0, "label": "Stepped to the front of the stage, waving",
+      "accepts": { "state": "blocked" }, "overflow": "warmup",
+      "slots": [ { "x": 320, "y": 525, "face": 1 }, { "x": 420, "y": 525, "face": -1 },
+                 { "x": 580, "y": 525, "face": 1 }, { "x": 680, "y": 525, "face": -1 } ] },
+
+    { "id": "cots",    "kind": "slots", "region": "backstage", "prio": 1, "label": "Asleep on a cot",
+      "accepts": { "state": "stale" }, "pose": "sleep", "overflow": "benches",
+      "slots": [ { "x": 118, "y": 132, "face": 1 }, { "x": 184, "y": 132, "face": 1 } ] },
+
+    { "id": "benches", "kind": "slots", "region": "backstage", "prio": 2, "label": "Resting on a bench",
+      "accepts": { "state": ["idle", "stale"] }, "pose": "sit", "overflow": "warmup",
+      "slots": [ { "x": 300, "y": 138, "face": 1 }, { "x": 356, "y": 138, "face": -1 },
+                 { "x": 430, "y": 138, "face": 1 }, { "x": 486, "y": 138, "face": -1 } ] },
+
+    { "id": "warmup", "kind": "field", "region": "backstage", "label": "Warming up backstage",
+      "accepts": { "state": ["idle", "blocked", "stale", "working"] },
+      "grid": { "x": 700, "y": 120, "cols": 5, "colPitch": 78, "rowPitch": 60, "span": 60 } }
+  ],
+
+  "actor": {
+    "footprint": {
+      "standing": { "w": 76, "h": 64, "dy": 3 },
+      "posed":    { "w": 56, "h": 62, "dy": 4 }
+    },
+    "speed": { "base": 36, "jitter": 12 }
+  },
+
+  "entrance": { "spreadX": [430, 570], "y": 745 },
+  "exit":     { "spreadX": [430, 570], "y": 749 },
+  "farewell": { "text": "Fin!", "wave": true, "holdMs": 2600 },
+  "strings":  { "clean": "Fresh score (/clear)" },
+
+  "render": "themes/orchestra/render.js"
+}

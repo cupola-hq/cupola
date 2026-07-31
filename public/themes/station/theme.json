@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "name": "station",
+  "title": "The Station",
+  "blurb": "Sessions are crew aboard an orbital station -- working their module or out on a tether, flaring a distress beacon below the hull when they need you, cocooned in a sleep pod when they've gone quiet.",
+  "world": { "w": 1000, "h": 790 },
+  "wall": 8,
+  "outsideRegion": "outside",
+
+  "regions": {
+    "lab":      { "l": 170, "r": 500, "t": 150, "b": 300 },
+    "ops":      { "l": 500, "r": 830, "t": 150, "b": 300 },
+    "node":     { "l": 170, "r": 830, "t": 300, "b": 420 },
+    "quarters": { "l": 170, "r": 450, "t": 420, "b": 560 },
+    "cupola":   { "l": 450, "r": 640, "t": 420, "b": 560 },
+    "airlock":  { "l": 640, "r": 830, "t": 420, "b": 560 },
+    "space":    { "l": 56,  "r": 944, "t": 36,  "b": 720, "anchor": { "x": 735, "y": 604 } },
+    "outside":  { "anchor": { "x": 735, "y": 740 } }
+  },
+
+  "portals": {
+    "p-lab":      { "x": 340, "y": 300, "joins": ["lab", "node"] },
+    "p-ops":      { "x": 660, "y": 300, "joins": ["ops", "node"] },
+    "p-quarters": { "x": 310, "y": 420, "joins": ["quarters", "node"] },
+    "p-cupola":   { "x": 545, "y": 420, "joins": ["cupola", "node"] },
+    "p-airlock":  { "x": 735, "y": 420, "joins": ["airlock", "node"] },
+    "p-hatch":    { "x": 735, "y": 560, "joins": ["airlock", "space", "outside"] }
+  },
+
+  "places": [
+    { "id": "repair", "kind": "grid", "region": "airlock", "label": "Repairing at the airlock bench",
+      "accepts": { "state": "working", "activity": ["exec"] },
+      "faceAt": 900, "overflow": "drift",
+      "grid": { "x": 735, "y": 466, "cols": 2, "colPitch": 82, "rowPitch": 48, "span": 48 } },
+
+    { "id": "glovebox", "kind": "grid", "region": "lab", "label": "At the lab glovebox",
+      "accepts": { "state": "working", "activity": ["edit"] },
+      "faceAt": 100, "overflow": "drift",
+      "grid": { "x": 280, "y": 196, "cols": 2, "colPitch": 84, "rowPitch": 60, "span": 58 } },
+
+    { "id": "observe", "kind": "grid", "region": "cupola", "label": "Observing from the cupola",
+      "accepts": { "state": "working", "activity": ["read"] },
+      "faceAt": 545, "overflow": "drift",
+      "grid": { "x": 545, "y": 466, "cols": 2, "colPitch": 80, "rowPitch": 48, "span": 48 } },
+
+    { "id": "robotics", "kind": "grid", "region": "ops", "label": "Operating the robotic arm",
+      "accepts": { "state": "working", "activity": ["delegate"] },
+      "faceAt": 100, "overflow": "drift",
+      "grid": { "x": 585, "y": 196, "cols": 1, "colPitch": 84, "rowPitch": 60, "span": 58 } },
+
+    { "id": "planning", "kind": "grid", "region": "ops", "label": "At the mission planning board",
+      "accepts": { "state": "working", "activity": ["plan"] },
+      "faceAt": 900, "overflow": "drift",
+      "grid": { "x": 730, "y": 196, "cols": 2, "colPitch": 80, "rowPitch": 60, "span": 58 } },
+
+    { "id": "eva", "kind": "loop", "region": "space", "label": "On a spacewalk along the tether",
+      "accepts": { "state": "working", "activity": ["net"] },
+      "speed": 28,
+      "loop": { "roundRect": { "x": 126, "y": 106, "w": 748, "h": 498, "r": 80 } } },
+
+    { "id": "berths", "kind": "slots", "region": "quarters", "prio": 0, "label": "Asleep in a berth",
+      "accepts": { "state": "stale" }, "pose": "sleep", "overflow": "galley",
+      "slots": [ { "x": 205, "y": 456, "face": -1 }, { "x": 275, "y": 456, "face": -1 },
+                 { "x": 205, "y": 514, "face": -1 }, { "x": 275, "y": 514, "face": -1 } ] },
+
+    { "id": "galley", "kind": "slots", "region": "quarters", "prio": 1, "label": "At the galley table",
+      "accepts": { "state": ["idle", "stale"] }, "homeOnly": ["idle"],
+      "pose": "sit", "overflow": "drift",
+      "slots": [ { "x": 330, "y": 458, "face": 1 },  { "x": 330, "y": 516, "face": 1 },
+                 { "x": 410, "y": 458, "face": -1 }, { "x": 410, "y": 516, "face": -1 } ] },
+
+    { "id": "beacon", "kind": "slots", "region": "space", "prio": 2, "label": "Tethered below the hull, flaring",
+      "accepts": { "state": "blocked" }, "overflow": "drift",
+      "slots": [ { "x": 240, "y": 672, "face": 1 },  { "x": 370, "y": 672, "face": -1 },
+                 { "x": 500, "y": 672, "face": 1 },  { "x": 630, "y": 672, "face": -1 },
+                 { "x": 760, "y": 672, "face": 1 } ] },
+
+    { "id": "drift", "kind": "field", "region": "node", "label": "Drifting in the corridor",
+      "accepts": { "state": ["idle", "blocked", "stale", "working"] },
+      "grid": { "x": 500, "y": 342, "cols": 8, "colPitch": 76, "rowPitch": 34, "span": 34 } }
+  ],
+
+  "actor": {
+    "footprint": {
+      "standing": { "w": 78, "h": 68, "dy": 2 },
+      "posed":    { "w": 50, "h": 56, "dy": 4 }
+    },
+    "speed": { "base": 46, "jitter": 16 }
+  },
+
+  "entrance": { "spreadX": [680, 790], "y": 755 },
+  "exit":     { "spreadX": [680, 790], "y": 760 },
+  "farewell": { "text": "o7", "wave": true, "holdMs": 2600 },
+  "strings":  { "clean": "Jettison ballast (/clear)" },
+
+  "render": "themes/station/render.js"
+}

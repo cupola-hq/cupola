@@ -1,0 +1,88 @@
+{
+  "format": 1,
+  "name": "brigade",
+  "title": "Restaurant kitchen",
+  "blurb": "Sessions are kitchen staff in a restaurant brigade -- working their station, thrusting a ticket overhead at the pass when they need you, hiding in the walk-in when they've gone quiet.",
+  "world": { "w": 1000, "h": 790 },
+  "wall": 9,
+  "outsideRegion": "outside",
+
+  "regions": {
+    "dining":    { "l": 60,  "r": 940, "t": 60,  "b": 330 },
+    "kitchen":   { "l": 60,  "r": 640, "t": 330, "b": 640 },
+    "backhouse": { "l": 640, "r": 940, "t": 330, "b": 640 },
+    "outside":   { "anchor": { "x": 790, "y": 710 } }
+  },
+
+  "portals": {
+    "swing-door":   { "x": 560, "y": 330, "joins": ["kitchen", "dining"] },
+    "service-door": { "x": 790, "y": 330, "joins": ["backhouse", "dining"] },
+    "inner-door":   { "x": 640, "y": 480, "joins": ["kitchen", "backhouse"] },
+    "back-door":    { "x": 790, "y": 640, "joins": ["backhouse", "outside"] }
+  },
+
+  "places": [
+    { "id": "saute",  "kind": "grid", "region": "kitchen", "label": "Working the sauté station",
+      "accepts": { "state": "working", "activity": ["exec"] },
+      "faceAt": 120, "prop": "saute", "overflow": "weeds",
+      "grid": { "x": 155, "y": 400, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 180 } },
+
+    { "id": "prep",   "kind": "grid", "region": "kitchen", "label": "Prepping at the counter",
+      "accepts": { "state": "working", "activity": ["edit"] },
+      "faceAt": 600, "prop": "chop", "overflow": "weeds",
+      "grid": { "x": 555, "y": 400, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 180 } },
+
+    { "id": "recipes", "kind": "grid", "region": "backhouse", "label": "Checking the recipe binder",
+      "accepts": { "state": "working", "activity": ["read"] },
+      "faceAt": 695, "prop": "binder", "overflow": "weeds",
+      "grid": { "x": 695, "y": 445, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 130 } },
+
+    { "id": "board",  "kind": "grid", "region": "backhouse", "label": "At the specials board",
+      "accepts": { "state": "working", "activity": ["plan"] },
+      "faceAt": 760, "prop": "marker", "overflow": "weeds",
+      "grid": { "x": 780, "y": 500, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 95 } },
+
+    { "id": "phone",  "kind": "grid", "region": "backhouse", "label": "On the phone with a supplier",
+      "accepts": { "state": "working", "activity": ["delegate"] },
+      "faceAt": 900, "prop": "handset", "overflow": "weeds",
+      "grid": { "x": 870, "y": 540, "cols": 1, "colPitch": 88, "rowPitch": 68, "span": 52 } },
+
+    { "id": "rounds", "kind": "loop", "region": "dining", "label": "Running rounds in the dining room",
+      "accepts": { "state": "working", "activity": ["net"] },
+      "speed": 60,
+      "loop": { "roundRect": { "x": 300, "y": 100, "w": 580, "h": 170, "r": 60 } } },
+
+    { "id": "pass",   "kind": "slots", "region": "kitchen", "prio": 0, "label": "Stuck at the pass",
+      "accepts": { "state": "blocked" }, "overflow": "weeds",
+      "slots": [ { "x": 200, "y": 374, "face": 1 },  { "x": 290, "y": 374, "face": -1 },
+                 { "x": 380, "y": 374, "face": 1 },  { "x": 470, "y": 374, "face": -1 } ] },
+
+    { "id": "walkin", "kind": "slots", "region": "backhouse", "prio": 1, "label": "In the walk-in",
+      "accepts": { "state": "stale" }, "pose": "sleep", "overflow": "famtable",
+      "slots": [ { "x": 845, "y": 400, "face": -1 }, { "x": 900, "y": 400, "face": -1 } ] },
+
+    { "id": "famtable", "kind": "slots", "region": "dining", "prio": 2, "label": "At the family-meal table",
+      "accepts": { "state": ["idle", "stale"] }, "pose": "sit", "overflow": "weeds",
+      "slots": [ { "x": 140, "y": 150, "face": 1 },  { "x": 200, "y": 150, "face": -1 },
+                 { "x": 140, "y": 285, "face": 1 },  { "x": 200, "y": 285, "face": -1 } ] },
+
+    { "id": "weeds", "kind": "field", "region": "kitchen", "label": "In the weeds",
+      "accepts": { "state": ["idle", "blocked", "stale", "working"] },
+      "grid": { "x": 355, "y": 445, "cols": 3, "colPitch": 95, "rowPitch": 78, "span": 148 } }
+  ],
+
+  "actor": {
+    "footprint": {
+      "standing": { "w": 82, "h": 65, "dy": 3.5 },
+      "posed":    { "w": 46, "h": 61, "dy": 5.5 }
+    },
+    "speed": { "base": 40, "jitter": 15 }
+  },
+
+  "entrance": { "spreadX": [700, 880], "y": 745 },
+  "exit":     { "spreadX": [700, 880], "y": 750 },
+  "farewell": { "text": "Ciao!", "wave": true, "holdMs": 2600 },
+  "strings":  { "clean": "Reset station (/clear)" },
+
+  "render": "themes/brigade/render.js"
+}

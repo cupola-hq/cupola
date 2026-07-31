@@ -91,15 +91,41 @@
 /* --- blocked: an actual raised arm, waving ------------------------------- */
 .sim.blocked .arm-r { animation: wave .7s ease-in-out infinite; }
 @keyframes wave { 0%,100% { transform: rotate(-150deg) } 50% { transform: rotate(-124deg) } }
-/* transform:scale, not an `r` animation -- r/cx/cy are geometry attributes,
-   so animating them repaints every frame; transform+opacity are the two
-   properties the compositor can run without touching layout. Same visual
-   ring (r24->r40 = 1.667x), non-scaling-stroke keeps the ring's 2px edge
-   from thickening as it scales up. */
-.sim.blocked .alert { animation: pulse 1.6s ease-out infinite; transform-origin: 0px -2px; }
-@keyframes pulse {
-  0%   { transform: scale(1); opacity: .55 }
-  100% { transform: scale(1.667); opacity: 0 }
+/* --- the "needs you" halo: THE ONE visual every theme renders identically --
+   a user who learns what this looks like in one theme has to recognize it
+   instantly in every other, so color and blink cadence are fixed here, once,
+   for every theme, rather than each reinventing its own (which is what
+   happened before this rule existed: house pulsed a hollow ring on a slow
+   continuous fade while car/brigade/hive/station each independently blinked
+   a filled halo at slightly different oranges and slightly different
+   opacities -- functionally the same signal, but visibly inconsistent
+   switching between them, which defeats the point of a shared signal).
+   Every theme's `.alert` group holds a `.halo` -- an ellipse roughly framing
+   the character, sized/positioned to fit that theme's own actor -- and nothing
+   else about `.halo` needs to vary. Themes are still free to add their OWN
+   extra elements alongside it for local flavor (car's corner hazlamps,
+   station's flare, hive's rising scent puffs, brigade's ticket) -- those
+   keep their own per-theme color and may reference this same `alert-blink`
+   keyframe for perfect timing sync, but only `.halo` itself is governed here.
+   Discrete steps(), not a fade: a flicker reads as urgent, a smooth fade
+   reads as ambience, and blocked is the one state that must never be mistaken
+   for ambience.
+   Visibility itself (0 vs any) stays the HOST's job -- it writes `.alert`'s
+   own opacity attribute every frame (index.html, updateSim); this rule only
+   ever touches `.halo`, a CHILD of `.alert`, and must never set an
+   opacity/animation rule on `.alert` itself -- that would permanently
+   outrank the host's attribute (this is exactly the bug a bare
+   `.sim.blocked .alert` selector caused here previously: it fought every
+   theme's own hazard CSS the moment that theme's actor picked up the shared
+   `.sim` class needed for click-through). */
+/* rgba(255,201,74) = #ffc94a = the app's own --gold, and STATE_COLOR.blocked
+   in index.html (the session-detail badge's color for this same state) --
+   matched deliberately so "blocked" looks like the same color everywhere in
+   the product, not just consistent theme-to-theme. */
+.sim.blocked .halo { fill: rgba(255,201,74,.4); animation: alert-blink .8s steps(1,end) infinite; }
+@keyframes alert-blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: .15 } }
+@media (prefers-reduced-motion: reduce) {
+  .sim.blocked .halo { animation: none !important; opacity: 1 !important; }
 }
 
 /* --- shown out: stood on the street, waving ------------------------------ */

@@ -2,6 +2,7 @@
  "format": 1,
  "name": "car",
  "title": "Racetrack",
+ "blurb": "Sessions are cars on a track -- lapping while they work, parked in the lot when idle, pulled onto the shoulder with hazards on when they need you.",
  "world": {
   "w": 1000,
   "h": 790
@@ -94,6 +95,7 @@
  "places": [
   {
    "id": "lap",
+   "label": "Lapping the track",
    "kind": "loop",
    "region": "track",
    "accepts": {
@@ -112,6 +114,7 @@
   },
   {
    "id": "lot",
+   "label": "Parked in the lot",
    "kind": "slots",
    "region": "lot",
    "prio": 0,
@@ -187,6 +190,7 @@
   },
   {
    "id": "shoulder",
+   "label": "Pulled onto the shoulder, hazards on",
    "kind": "slots",
    "region": "shoulder",
    "prio": 1,
@@ -224,6 +228,7 @@
   },
   {
    "id": "apron",
+   "label": "Idling on the apron",
    "kind": "field",
    "region": "apron",
    "accepts": {

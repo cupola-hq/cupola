@@ -281,6 +281,42 @@
   const boxHit = (A, B) => A.r > B.l && B.r > A.l && A.b > B.t && B.b > A.t;
   const inBox = (b, r) => b.l >= r.l && b.r <= r.r && b.t >= r.t && b.b <= r.b;
 
+  // A generous world-space bounding box for one whole PLACE (not one sprite's
+  // footprint) -- for legend/overlay UI that wants to shade "this general
+  // area is where working/blocked/idle/stale sessions land", not for
+  // containment math (checkContainment already covers that per-sprite).
+  // Deliberately approximate: grid/field rows can compress past `span` under
+  // load (that's expected, not an escape -- see layoutGrid), so this is the
+  // clean-layout extent, not a hard ceiling. Every kind's box is padded by
+  // half the relevant footprint so the shaded area visually contains the
+  // sims that actually land there, not just their anchor points.
+  function placeBounds(theme, place) {
+    const seated = !!place.pose;
+    const fp = (theme.actor.footprint && (seated ? theme.actor.footprint.posed : theme.actor.footprint.standing))
+      || { w: 82, h: 65, dy: 0 };
+    const halfW = fp.w / 2, halfH = fp.h / 2;
+    if (place.kind === 'grid' || place.kind === 'field') {
+      const g = place.grid;
+      const halfCols = (g.cols - 1) / 2 * g.colPitch;
+      return { l: g.x - halfCols - halfW, r: g.x + halfCols + halfW,
+               t: g.y - halfH, b: g.y + (g.span || 0) + halfH };
+    }
+    if (place.kind === 'slots') {
+      const xs = place.slots.map(s => s.x), ys = place.slots.map(s => s.y);
+      return { l: Math.min(...xs) - halfW, r: Math.max(...xs) + halfW,
+               t: Math.min(...ys) - halfH, b: Math.max(...ys) + halfH };
+    }
+    if (place.kind === 'loop') {
+      // buildLoopPolyline already handles both the `points` and `roundRect`
+      // shapes (see below) -- reuse it instead of a second geometry parser.
+      const { pts } = buildLoopPolyline(place.loop);
+      const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+      return { l: Math.min(...xs) - halfW, r: Math.max(...xs) + halfW,
+               t: Math.min(...ys) - halfH, b: Math.max(...ys) + halfH };
+    }
+    return null;
+  }
+
   // Theme-independent by construction (THEMES.md §2.1.1): the only theme
   // inputs are containmentBox() and footprint(); everything else is generic
   // rectangle math. Runs identically in the browser harness (?boxes=1) and
@@ -556,7 +592,7 @@
   const api = {
     hash, activityOf,
     regionAt, containmentBox, findPortal, route, bfsPortalPath,
-    footprint, boxHit, inBox, checkContainment, checkOverflowChains,
+    footprint, placeBounds, boxHit, inBox, checkContainment, checkOverflowChains,
     layoutGrid, layoutSlots, layoutField, layoutLoop, layoutTheme,
     buildLoopPolyline, pointOnPolyline,
   };

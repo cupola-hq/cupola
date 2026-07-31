@@ -73,6 +73,13 @@ if (!document.getElementById('car-theme-style')) {
    this was the only thing left sitting under a car going nowhere. */
 .car .shadow { fill: rgba(0,0,0,.35); display: none; }
 .car.walking .shadow, .car.working .shadow { display: block; }
+/* The shared shadow ellipse (rx34/ry15) is sized for the sedan -- a
+   motorcycle's own body is barely a third that width, so the same shadow
+   read as a wide car-sized smudge under a visibly narrow bike. rx/ry (not
+   transform: scale) so this composes independently of the dormant
+   .car.parked .shadow rotate+scale above instead of fighting it for the
+   same transform property. */
+.car.tier-haiku .shadow { rx: 22px; ry: 7px; }
 
 /* colour: the whole body reads in --c, desaturating/darkening with heft
    exactly like the house's people (same proven "amplitude not detail
@@ -173,13 +180,17 @@ if (!document.getElementById('car-theme-style')) {
    lands on once it arrives. Every other state in this theme is deliberately
    flicker-free so blocked stays the ONLY thing on the board that blinks. */
 /* Base visibility (opacity 0/1) is the HOST's job -- it sets the opacity
-   SVG attribute on .alert directly every frame (updateSim() in index.html),
-   exactly like the house's raised-hand ring. A CSS opacity rule here would
-   outrank that presentation attribute permanently -- leave .alert alone and
-   let .halo/.hazlamp animate WITHIN whatever visibility the host sets. */
-.car .halo { fill: rgba(255,180,60,.4); animation: car-hazard .8s steps(1,end) infinite; }
-.car .hazlamp { fill: #ffb457; animation: car-hazard .8s steps(1,end) infinite; }
-@keyframes car-hazard { 0%,49% { opacity: 1 } 50%,100% { opacity: .15 } }
+   SVG attribute on .alert directly every frame (updateSim() in index.html).
+   A CSS opacity rule here would outrank that presentation attribute
+   permanently -- leave .alert alone and let .halo/.hazlamp animate WITHIN
+   whatever visibility the host sets.
+   .halo's own color+timing is sims.css's .sim.blocked .halo rule now, not
+   declared here -- every theme's halo shares that one rule so "needs you"
+   looks and blinks identically no matter which theme is active. .hazlamp is
+   car's own extra flourish (the four corner marker lamps), so it keeps its
+   own color, but references the SAME alert-blink keyframe for perfect
+   sync with .halo. */
+.car .hazlamp { fill: #ffb457; animation: alert-blink .8s steps(1,end) infinite; }
 .car .hazring { display: none; fill: none; stroke: #ffb300; stroke-width: 3; }
 .car .triangle-fill { fill: #fff8e7; }
 .car .triangle-edge { fill: none; stroke: #e8442a; stroke-width: 2.4; stroke-linejoin: round; }
@@ -237,23 +248,25 @@ if (!document.getElementById('car-theme-style')) {
    zzz drift, bye bubble pop) just need to stop moving -- collapsing their
    duration to near-zero does that with no per-animation list to maintain, so
    a new one added later is covered automatically.
-   The five STEPPED animations (halo, hazlamp, both lightbars, the bye
-   headlight flash) are a different shape: a steps()/step-start blink at
-   near-zero duration doesn't stop, it strobes -- opacity still flips between
-   two values every animation cycle, just too fast to consciously perceive.
-   That's the opposite of what reduced-motion is for, so these five get a
-   hard animation:none instead of a duration squeeze. halo/hazlamp keep
+   The four STEPPED animations (hazlamp, both lightbars, the bye headlight
+   flash) are a different shape: a steps()/step-start blink at near-zero
+   duration doesn't stop, it strobes -- opacity still flips between two
+   values every animation cycle, just too fast to consciously perceive.
+   That's the opposite of what reduced-motion is for, so these four get a
+   hard animation:none instead of a duration squeeze. hazlamp keeps
    opacity:1 !important so blocked's signal stays visible (the blink was
    never the only carrier -- .hazring, a static ring, exists for exactly
    this fallback); the two lightbars and the headlight have no static
    equivalent, so animation:none simply leaves them at their base (unlit)
-   opacity. */
+   opacity. .halo's own reduced-motion fallback is sims.css's problem now,
+   not this theme's -- it's the shared rule's job since it's the shared
+   animation. */
 @media (prefers-reduced-motion: reduce) {
   .car *, .car { animation-duration: .001ms !important; }
-  .car .halo, .car .hazlamp,
+  .car .hazlamp,
   .car .lightbar-l, .car .lightbar-r,
   .car .headlight { animation: none !important; }
-  .car .halo, .car .hazlamp { opacity: 1 !important; }
+  .car .hazlamp { opacity: 1 !important; }
   .car .hazring { display: inline; }
 }
 `;

@@ -1,0 +1,94 @@
+{
+  "format": 1,
+  "name": "hive",
+  "title": "The hive",
+  "blurb": "Sessions are bees in an observation hive -- working their station or out foraging, fanning an alarm pheromone at the landing board when they need you, docked head-first in a cell when they've gone quiet.",
+  "world": { "w": 1000, "h": 790 },
+  "wall": 8,
+  "outsideRegion": "outside",
+  "hub": "floor",
+
+  "regions": {
+    "brood":  { "l": 100, "r": 500, "t": 50,  "b": 330 },
+    "stores": { "l": 500, "r": 900, "t": 50,  "b": 330 },
+    "floor":  { "l": 100, "r": 900, "t": 330, "b": 520, "anchor": { "x": 500, "y": 470 } },
+    "board":  { "l": 300, "r": 700, "t": 520, "b": 600, "anchor": { "x": 500, "y": 560 } },
+    "meadow": { "l": 60,  "r": 940, "t": 600, "b": 760, "anchor": { "x": 500, "y": 660 } },
+    "outside":{ "anchor": { "x": 500, "y": 750 } }
+  },
+
+  "portals": {
+    "p-brood":  { "x": 300, "y": 330, "joins": ["brood",  "floor"]  },
+    "p-stores": { "x": 700, "y": 330, "joins": ["stores", "floor"]  },
+    "p-door":   { "x": 500, "y": 520, "joins": ["floor",  "board"]  },
+    "p-board":  { "x": 500, "y": 600, "joins": ["board",  "meadow"] },
+    "p-out":    { "x": 500, "y": 758, "joins": ["meadow", "outside"] }
+  },
+
+  "places": [
+    { "id": "forage", "kind": "loop", "region": "meadow", "label": "Foraging over the meadow",
+      "accepts": { "state": "working", "activity": ["net"] },
+      "speed": 90,
+      "loop": { "roundRect": { "x": 170, "y": 630, "w": 660, "h": 95, "r": 40 } } },
+
+    { "id": "capping",    "kind": "grid", "region": "stores", "label": "Capping honey cells",
+      "accepts": { "state": "working", "activity": ["exec"] }, "overflow": "cluster",
+      "grid": { "x": 610, "y": 140, "cols": 2, "colPitch": 64, "rowPitch": 56, "span": 150 } },
+
+    { "id": "nursing",    "kind": "grid", "region": "brood", "label": "Nursing a larva",
+      "accepts": { "state": "working", "activity": ["edit"] }, "overflow": "cluster",
+      "grid": { "x": 210, "y": 140, "cols": 2, "colPitch": 64, "rowPitch": 56, "span": 150 } },
+
+    { "id": "inspecting", "kind": "grid", "region": "brood", "label": "Inspecting a cell",
+      "accepts": { "state": "working", "activity": ["read"] }, "overflow": "cluster",
+      "grid": { "x": 390, "y": 140, "cols": 2, "colPitch": 64, "rowPitch": 56, "span": 150 } },
+
+    { "id": "building",   "kind": "grid", "region": "stores", "label": "Building new comb",
+      "accepts": { "state": "working", "activity": ["plan"] }, "overflow": "cluster",
+      "grid": { "x": 770, "y": 140, "cols": 2, "colPitch": 60, "rowPitch": 56, "span": 150 } },
+
+    { "id": "dancing",    "kind": "grid", "region": "floor", "label": "Waggle-dancing on the dance floor",
+      "accepts": { "state": "working", "activity": ["delegate"] }, "overflow": "cluster",
+      "grid": { "x": 280, "y": 390, "cols": 2, "colPitch": 70, "rowPitch": 50, "span": 95 } },
+
+    { "id": "board", "kind": "slots", "region": "board", "prio": 0, "label": "Fanning an alarm at the landing board",
+      "accepts": { "state": "blocked" }, "overflow": "cluster",
+      "slots": [ { "x": 350, "y": 560, "face": 1 },  { "x": 425, "y": 560, "face": -1 },
+                 { "x": 500, "y": 560, "face": 1 },  { "x": 575, "y": 560, "face": -1 },
+                 { "x": 650, "y": 560, "face": 1 } ] },
+
+    { "id": "dorm", "kind": "slots", "region": "stores", "prio": 1, "label": "Docked in a dorm cell",
+      "accepts": { "state": "stale" }, "pose": "sleep", "overflow": "perch-e",
+      "slots": [ { "x": 862, "y": 120, "face": 1 }, { "x": 862, "y": 180, "face": 1 },
+                 { "x": 862, "y": 240, "face": 1 } ] },
+
+    { "id": "perch-e", "kind": "slots", "region": "floor", "prio": 2, "label": "Perched on the east rest slat",
+      "accepts": { "state": ["stale", "idle"] }, "homeOnly": ["idle"], "pose": "sit",
+      "overflow": "perch-w",
+      "slots": [ { "x": 850, "y": 370, "face": -1 }, { "x": 850, "y": 430, "face": -1 },
+                 { "x": 850, "y": 490, "face": -1 } ] },
+
+    { "id": "perch-w", "kind": "slots", "region": "floor", "prio": 3, "label": "Perched on the west rest slat",
+      "accepts": { "state": ["stale", "idle"] }, "homeOnly": ["idle"], "pose": "sit",
+      "overflow": "cluster",
+      "slots": [ { "x": 150, "y": 370, "face": 1 }, { "x": 150, "y": 430, "face": 1 },
+                 { "x": 150, "y": 490, "face": 1 } ] },
+
+    { "id": "cluster", "kind": "field", "region": "floor", "label": "Clustered on the hive floor",
+      "accepts": { "state": ["idle", "blocked", "stale", "working"] },
+      "grid": { "x": 620, "y": 380, "cols": 4, "colPitch": 70, "rowPitch": 55, "span": 105 } }
+  ],
+
+  "actor": {
+    "footprint": { "standing": { "w": 56, "h": 44, "dy": 0 },
+                   "posed":    { "w": 46, "h": 38, "dy": 2 } },
+    "speed": { "base": 130, "jitter": 35 }
+  },
+
+  "entrance": { "spreadX": [420, 580], "y": 770 },
+  "exit":     { "spreadX": [420, 580], "y": 775 },
+  "farewell": { "text": "Bzz!", "wave": true, "holdMs": 2600 },
+  "strings":  { "clean": "Clean cells (/clear)" },
+
+  "render": "themes/hive/render.js"
+}

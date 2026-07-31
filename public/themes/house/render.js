@@ -130,8 +130,13 @@ function buildActor(s) {
   g.style.setProperty('--hair', `hsl(${hue(s)} 40% 28%)`);
 
   g.appendChild(el('ellipse', { class: 'shadow', cx: 0, cy: 17, rx: 13, ry: 4.6 }));
-  g.appendChild(el('circle', { class: 'alert', cx: 0, cy: -2, r: 24, fill: 'none',
-    stroke: '#ffc94a', 'stroke-width': 2, opacity: 0, 'vector-effect': 'non-scaling-stroke' }));
+  // `.halo` is the shared, cross-theme "needs you" visual -- sims.css owns
+  // its color and blink timing (`.sim.blocked .halo`) so this reads
+  // identically in every theme; only its size/position here is house's own,
+  // sized to fit the same body plan brigade/orchestra/station share.
+  const alert = el('g', { class: 'alert' });
+  alert.appendChild(el('ellipse', { class: 'halo', cx: 0, cy: -6, rx: 40, ry: 34 }));
+  g.appendChild(alert);
 
   const body = el('g', { class: 'body' });
 
