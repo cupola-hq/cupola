@@ -28,6 +28,12 @@ Thanks for wanting to work on this. A few things worth knowing before you dig in
 
 No install step — that's the point.
 
+If you don't have push access (most contributors won't, and don't need it):
+[fork the repo](https://github.com/cupola-hq/cupola/fork) first, then clone
+your fork instead of the URL below. Everything else — running it, testing
+it, opening the PR back against `cupola-hq/cupola` — works the same either
+way.
+
 ```
 git clone https://github.com/cupola-hq/cupola.git
 cd cupola

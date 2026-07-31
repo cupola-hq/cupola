@@ -1,0 +1,35 @@
+name: Feature request
+description: Propose something Cupola doesn't do yet
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Before filing, worth a quick check of the README's [Deliberately not
+        done](https://github.com/cupola-hq/cupola#deliberately-not-done)
+        section — permission inference and remote/multi-machine support
+        specifically were considered and rejected for reasons explained
+        there. A proposal reopening either needs to argue with that
+        reasoning, not route around it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that Cupola doesn't support right now?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like to see
+      description: Roughly how you picture this working. Doesn't need to be a full spec.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you've tried
+      description: Anything you're doing today to get around this, if applicable.

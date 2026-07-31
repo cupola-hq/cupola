@@ -1,0 +1,56 @@
+name: Theme idea
+description: Propose a new scene for Cupola (sessions as bees, chefs, whatever)
+labels: ["theme"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Themes are data (`theme.json` + `render.js`), not a fork of the
+        engine — see
+        [THEMES.md](https://github.com/cupola-hq/cupola/blob/main/THEMES.md)
+        for the full contract. You don't need to have read it to propose an
+        idea, but the questions below map to what a theme actually needs to
+        answer, so filling them in gets your idea further before anyone has
+        to write code.
+
+  - type: input
+    id: metaphor
+    attributes:
+      label: The scene
+      description: One line. What is it, and what's a session in it?
+      placeholder: "A greenhouse — sessions are plants being tended"
+    validations:
+      required: true
+
+  - type: textarea
+    id: states
+    attributes:
+      label: The four states
+      description: >
+        Every theme needs a distinct, at-a-glance answer for each of these.
+        "Needs you" (blocked) is the most important one in the whole
+        product — a viewer should catch it out of the corner of their eye
+        without reading anything.
+      placeholder: |
+        working — ...
+        idle — ...
+        needs you (blocked) — ...
+        gone quiet (stale) — ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: activities
+    attributes:
+      label: The six activities (optional)
+      description: >
+        If your scene has room for it, what does each of exec (Bash),
+        edit, read, plan, delegate, and net (WebFetch/WebSearch) look like?
+        Not every theme spatially separates these — the racetrack doesn't —
+        so skip this if it doesn't fit.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Sketches, reference images, or open questions welcome.

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/cupola-hq/cupola/security/advisories/new
+    about: Please report vulnerabilities privately instead of as a public issue — see SECURITY.md.

@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in the daemon, hooks, or a theme isn't working right
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what actually happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `npx cupola`
+        2. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: harness
+    attributes:
+      label: Does it reproduce under the fake-crowd harness?
+      description: >
+        If this is about the live view (layout, rendering, a theme), try
+        http://localhost:7777/?fake=40&boxes=1 first — it isolates
+        rendering/layout bugs from hook or transcript data issues, and tells
+        us which half of the app to look at.
+      options:
+        - "Yes, reproduces with ?fake="
+        - "No — only happens with real sessions"
+        - "N/A — not about the live view"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "e.g. macOS 15.1, Ubuntu 24.04, Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: "node --version"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Cupola version
+      placeholder: "npm ls -g cupola, or the version in package.json if running from a clone"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Terminal output, browser console errors, or a screenshot. Leave prompt/answer text out if it's sensitive — the shape of the bug is usually enough.
+      render: shell

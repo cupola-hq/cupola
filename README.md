@@ -253,10 +253,13 @@ session to "gone quiet."
 ## Contributing
 
 Bug reports, theme ideas, and PRs are welcome — see
-[CONTRIBUTING.md](CONTRIBUTING.md) for how the codebase is tested (there's no
-automated suite — a fake-crowd harness and a theme conformance checker stand
-in for one), the zero-dependency constraint, and what's already been decided
-against (see [Deliberately not done](#deliberately-not-done) above).
+[CONTRIBUTING.md](CONTRIBUTING.md) for how the codebase is tested (`npm test`,
+plus a fake-crowd harness and a theme conformance checker for the parts a
+generic test suite can't cover), the zero-dependency constraint, and what's
+already been decided against (see [Deliberately not done](#deliberately-not-done)
+above). Found a security issue? See [SECURITY.md](SECURITY.md) rather than
+opening a public issue. Participation is covered by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
