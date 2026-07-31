@@ -650,8 +650,17 @@ function describeTool(name, input) {
 }
 
 function scan() {
+  // A brand-new machine (or, tellingly, any fresh CI runner -- this exact
+  // gap shipped once already and only broke in CI, never locally, because
+  // every local dev machine already has real Claude Code history) has no
+  // ~/.claude/projects at all yet. That used to `return []` immediately,
+  // which happened to be harmless when the jsonl scan below was the ONLY
+  // source of session rows -- but it silently skipped the roster tier and
+  // the hook-only tier too, both of which have nothing to do with this
+  // directory existing. `dirs = []` instead of an early return: the jsonl
+  // loop below just does zero iterations, and every other tier still runs.
   let dirs;
-  try { dirs = fs.readdirSync(PROJECTS); } catch { return []; }
+  try { dirs = fs.readdirSync(PROJECTS); } catch { dirs = []; }
 
   const now = Date.now();
   const out = [];
